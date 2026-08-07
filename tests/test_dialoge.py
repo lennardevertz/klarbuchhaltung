@@ -58,3 +58,35 @@ def test_dialog_liegt_in_der_top_layer():
 def test_escape_gilt_als_abbruch():
     quelle = (TEMPLATES / "_dialog.html").read_text(encoding="utf-8")
     assert "'cancel'" in quelle, "Escape muss als Abbruch aufgelöst werden"
+
+
+# ── Chat-Karten ──────────────────────────────────────────────────────────
+def test_vollseite_zeichnet_dieselben_karten_wie_das_widget():
+    """Die Vollseite /chat zeigte nur Text; Diagramme fielen still unter den Tisch.
+
+    Beide Ansichten müssen dieselbe Funktion benutzen, sonst laufen sie
+    wieder auseinander.
+    """
+    basis = (TEMPLATES / "base_klar.html").read_text(encoding="utf-8")
+    seite = (TEMPLATES / "chat.html").read_text(encoding="utf-8")
+    assert "window.klarRenderBlock=renderBlock" in basis, "Widget gibt den Zeichner frei"
+    assert "klarRenderBlock" in seite, "Vollseite benutzt ihn"
+    assert "m.blocks" in seite, "Vollseite liest die Karten aus der Antwort"
+
+
+def test_karten_koennen_nicht_aus_dem_widget_laufen():
+    """Flexbox: ohne min-width:0 greift text-overflow nie – genau das ist passiert."""
+    basis = (TEMPLATES / "base_klar.html").read_text(encoding="utf-8")
+    zeilen = [z for z in basis.splitlines()
+              if "display:flex" in z and "flex:1" in z and "min-width:0" not in z
+              and "btn" not in z]
+    assert not zeilen, "Flex-Zeile mit flex:1-Kind ohne min-width:0:\n" + "\n".join(
+        z.strip()[:120] for z in zeilen)
+
+
+def test_vollseite_ist_aus_dem_widget_erreichbar():
+    """Ohne Verweis war /chat nur über die Befehlspalette auffindbar."""
+    basis = (TEMPLATES / "base_klar.html").read_text(encoding="utf-8")
+    kopf = basis[basis.index('class="assistant__head"'):]
+    kopf = kopf[:kopf.index('id="ask-warn"')]      # bis zum Ende des Kopfbereichs
+    assert "url_for('chat')" in kopf, "Widget-Kopf verlinkt die Vollseite"

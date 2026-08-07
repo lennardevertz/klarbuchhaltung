@@ -34,10 +34,21 @@
   function render(msgs){
     log.innerHTML = (!msgs||!msgs.length) ? '<div class="muted" style="margin:auto;text-align:center">Noch keine Nachrichten. Stell eine Frage oder lade einen Beleg hoch.</div>' : '';
     for(const m of (msgs||[])){
-      const d=document.createElement('div');
-      if(m.role==='tool'){ d.className='muted'; d.style.cssText='font-size:12px;align-self:flex-start'; d.textContent='· '+m.text; }
-      else { d.className='msg '+(m.role==='user'?'msg--user':'msg--ai'); d.innerHTML = m.role==='assistant'?md(m.text):esc(m.text); }
-      log.appendChild(d);
+      if(m.role==='tool'){
+        const d=document.createElement('div'); d.className='muted';
+        d.style.cssText='font-size:12px;align-self:flex-start'; d.textContent='· '+m.text;
+        log.appendChild(d); continue;
+      }
+      if(m.text){
+        const d=document.createElement('div');
+        d.className='msg '+(m.role==='user'?'msg--user':'msg--ai');
+        d.innerHTML = m.role==='assistant'?md(m.text):esc(m.text);
+        log.appendChild(d);
+      }
+      // Diagramme und Formulare kommen aus derselben Funktion wie im Widget
+      for(const bl of (m.blocks||[])){
+        if(window.klarRenderBlock) log.appendChild(window.klarRenderBlock(bl));
+      }
     }
     log.scrollTop=log.scrollHeight;
   }
