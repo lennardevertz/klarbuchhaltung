@@ -1,0 +1,327 @@
+{% extends "base_klar.html" %}
+{% block title %}Rechnungen · Klar{% endblock %}
+{% block body %}
+<style>
+  .inv-del, .cust-del{ opacity:0; transition:opacity .12s, background .12s, color .12s }
+  .inv-row:hover .inv-del, .cust-row:hover .cust-del{ opacity:1 }
+  .inv-del:hover, .cust-del:hover{ background:var(--coral-tint); color:var(--coral-deep) }
+  .inv-del:focus-visible, .cust-del:focus-visible{ opacity:1 }
+  .cust-nr{ font-family:var(--font-display); font-variant-numeric:tabular-nums; font-size:12px; font-weight:600;
+    min-width:56px; padding:5px 8px; border-radius:8px; border:1px solid var(--line-2);
+    background:var(--wash); color:var(--ink-2); cursor:pointer; flex-shrink:0; text-align:center;
+    transition:border-color .12s, color .12s }
+  .cust-nr:hover{ border-color:var(--ink-3); color:var(--ink) }
+</style>
+
+<div class="kl-pagehead">
+  <h1>Rechnungen</h1>
+  <div class="row" style="gap:12px">
+    <div class="row" style="gap:3px;background:var(--surface);border:1px solid var(--line-2);padding:4px;border-radius:12px">
+      <a class="btn {{ 'btn--primary' if tab!='customers' else 'btn--ghost' }} btn--sm" href="{{ url_for('invoices') }}">Rechnungen</a>
+      <a class="btn {{ 'btn--primary' if tab=='customers' else 'btn--ghost' }} btn--sm" href="{{ url_for('invoices', tab='customers') }}">Kunden</a>
+    </div>
+    <a class="btn btn--primary" href="{{ url_for('invoice_new') }}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Neue Rechnung</a>
+  </div>
+</div>
+
+{% if tab == 'customers' %}
+{% if dupes %}
+<div class="card" style="margin-bottom:18px;background:var(--amber-tint);border-color:var(--overlay-ink-08);box-shadow:none">
+  <div class="row" style="justify-content:space-between;gap:18px;flex-wrap:wrap">
+    <div style="min-width:0">
+      <div style="font-size:14.5px;font-weight:600">{{ dupes|length }} Kunde{{ '' if dupes|length == 1 else 'n' }} doppelt angelegt</div>
+      <div class="muted" style="font-size:13px;margin-top:3px">{{ dupes|map(attribute='name')|join(', ') }} — beim Zusammenführen wandern alle Rechnungen zum vollständigeren Datensatz.</div>
+    </div>
+    <form method="post" action="{{ url_for('customers_merge_duplicates') }}">
+      <button class="btn btn--primary btn--sm" type="submit">Zusammenführen</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+<div class="grid-2" style="align-items:start">
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="list-head"><span style="font-size:15px;font-weight:600">Kunden</span><span class="muted" style="font-size:13px">{{ customers|length }}</span></div>
+    {% for c in customers %}
+    <div class="txn cust-row" style="padding:14px 20px;gap:14px">
+      <button type="button" class="cust-nr" title="Kundennummer bearbeiten"
+              data-action="{{ url_for('customer_number', cid=c['id']) }}"
+              data-name="{{ c['name'] }}" data-number="{{ c['number'] or '' }}"
+              data-suggest="{{ next_cust_number }}" onclick="askCustNumber(this)">
+        {{ c['number'] or '+ Nr.' }}
+      </button>
+      <div class="txn__body"><div class="txn__title">{{ c['name'] }}</div><div class="txn__meta">{{ c['address']|replace(';', ', ') if c['address'] else '—' }}</div></div>
+      <div class="num muted" style="font-size:12.5px">{{ c['vat_id'] or '' }}</div>
+      <button type="button" class="cust-del" title="Kunde löschen"
+              data-action="{{ url_for('customer_delete', cid=c['id']) }}"
+              data-name="{{ c['name'] }}" data-count="{{ cust_invoices[c['id']]|length }}"
+              data-invoices="{% for i in cust_invoices[c['id']] %}{{ i['number'] }} ({{ i['issue_date'][:4] }}){{ ', ' if not loop.last }}{% endfor %}"
+              onclick="askDeleteCust(this)"
+              style="border:0;background:none;padding:0;width:28px;height:28px;flex-shrink:0;border-radius:8px;color:var(--ink-4);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    {% else %}<div class="muted" style="padding:26px 20px">Noch keine Kunden.</div>{% endfor %}
+  </div>
+  <div class="card">
+    <div style="font-size:15px;font-weight:600;margin-bottom:16px">Kunde anlegen</div>
+    <form method="post" action="{{ url_for('invoices_customer') }}" class="stack">
+      <div class="field"><label>Name</label><input class="input" name="name" required></div>
+      <div class="field"><label>Kundennummer (optional)</label><input class="input num" name="number" placeholder="{{ next_cust_number }}" autocomplete="off"></div>
+      <div class="field"><label>Adresse</label><textarea class="textarea" name="address" rows="3" placeholder="Straße; PLZ Ort; Land"></textarea></div>
+      <div class="field"><label>USt-IdNr. (optional)</label><input class="input" name="vat_id"></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit">Anlegen</button></div>
+    </form>
+  </div>
+</div>
+
+{% else %}
+
+{% set dirlabel = {'out':'Ausgangsrechnungen','in':'Eingangsrechnungen'} %}
+<div class="row" style="gap:7px;margin-bottom:18px;font-size:14px">
+  <a href="{{ url_for('invoices') }}" style="{{ 'font-weight:600;color:var(--ink)' if not direction else 'color:var(--ink-2)' }}">Alle Ordner</a>
+  {% if direction %}<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C9C6BB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    <a href="{{ url_for('invoices', dir=direction) }}" style="{{ 'font-weight:600;color:var(--ink)' if not year else 'color:var(--ink-2)' }}">{{ dirlabel[direction] }}</a>{% endif %}
+  {% if year %}<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#C9C6BB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg><span class="num" style="font-weight:600">{{ year }}</span>{% endif %}
+</div>
+
+{% if not direction %}
+{# ── Ebene 0: Ausgang / Eingang ── #}
+<div class="grid-2">
+  {% for key,meta in [('out',{'title':'Ausgangsrechnungen','desc':'Rechnungen an Kunden (Erlöse)','icon':'M4 4h11l5 5v11H4z M15 4v5h5','bg':'var(--green-tint)','fg':'var(--green-deep)'}),
+                       ('in',{'title':'Eingangsrechnungen','desc':'Belege & Rechnungen an mich (Aufwand)','icon':'M12 16V4M7 9l5-5 5 5 M4 20h16','bg':'var(--coral-tint)','fg':'var(--coral-deep)'})] %}
+  <a href="{{ url_for('invoices', dir=key) }}" class="card" style="text-decoration:none;color:inherit;display:block;padding:26px">
+    <div class="row" style="justify-content:space-between;margin-bottom:20px">
+      <div style="width:52px;height:52px;border-radius:15px;background:{{ meta.bg }};color:{{ meta.fg }};display:flex;align-items:center;justify-content:center"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ meta.icon }}"/></svg></div>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#C9C6BB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </div>
+    <div style="font-size:18px;font-weight:600">{{ meta.title }}</div>
+    <div class="muted" style="font-size:13.5px;margin-top:3px">{{ meta.desc }}</div>
+    <div class="row" style="gap:24px;margin-top:20px;border-top:1px solid var(--line-3);padding-top:16px">
+      <div><div class="num disp" style="font-weight:700;font-size:22px">{{ dirs[key].total|eur }}</div><div class="muted" style="font-size:12px">Summe</div></div>
+      <div><div class="num disp" style="font-weight:700;font-size:22px">{{ dirs[key].count }}</div><div class="muted" style="font-size:12px">Belege</div></div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+
+{% elif not year %}
+{# ── Ebene 1: Jahres-Ordner ── #}
+<div class="grid-3">
+  {% for y in years %}
+  <a href="{{ url_for('invoices', dir=direction, year=y.year) }}" class="card" style="text-decoration:none;color:inherit;display:block">
+    <div class="row" style="justify-content:space-between">
+      <div style="width:44px;height:44px;border-radius:13px;background:var(--wash);color:var(--ink-2);display:flex;align-items:center;justify-content:center"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M3 8l2-3h14l2 3v11a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1z"/><path d="M3 8h18"/></svg></div>
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9C6BB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg>
+    </div>
+    <div class="disp" style="font-weight:700;font-size:24px;margin-top:16px">{{ y.year }}</div>
+    <div class="muted" style="font-size:13px;margin-top:2px">{{ y.count }} Belege · {{ y.total|eur }}</div>
+  </a>
+  {% else %}<div class="muted">Noch nichts hier.</div>{% endfor %}
+</div>
+
+{% elif direction == 'out' %}
+{# ── Ausgangsrechnungen-Liste ── #}
+<div class="card" style="padding:0;overflow:hidden">
+  <div class="row" style="gap:8px;padding:14px 20px;border-bottom:1px solid var(--line-3);flex-wrap:wrap">
+    <button class="chip chip--active" data-f="all" onclick="invChip(this)">Alle</button>
+    <button class="chip" data-f="open" onclick="invChip(this)">Offen</button>
+    <button class="chip" data-f="paid" onclick="invChip(this)">Bezahlt</button>
+  </div>
+  <div style="display:grid;grid-template-columns:120px minmax(0,1fr) 170px 130px 44px 32px;align-items:center;gap:16px;padding:11px 20px;border-bottom:1px solid var(--line-3);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-4)">
+    <span>Nr.</span><span>Kunde</span><span>Status</span><span style="text-align:right">Betrag</span><span></span><span></span>
+  </div>
+  {% for i in rows %}
+  <div class="inv-row" data-paid="{{ '1' if i['paid_date'] else '0' }}"
+       style="display:grid;grid-template-columns:120px minmax(0,1fr) 170px 130px 44px 32px;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line-3);cursor:pointer"
+       onclick="openInv(this)"
+       data-no="{{ i['number'] }}" data-client="{{ i['customer_name'] }}" data-addr="{{ (i['customer_address'] or '')|replace(';', ', ') }}"
+       data-vatid="{{ i['customer_vat_id'] or '' }}" data-issued="{{ i['issue_date']|de_date }}" data-due="{{ (i['paid_date'] or i['issue_date'])|de_date }}"
+       data-net="{{ i['net']|eur }}" data-vatamt="{{ (i['gross']-i['net'])|eur }}" data-gross="{{ i['gross']|eur }}"
+       data-grossnum="{{ '%.2f'|format(i['gross']) }}" data-currency="{{ i['currency'] or 'EUR' }}"
+       data-status="{{ 'Bezahlt' if i['paid_date'] else ('Versendet' if i['sent_at'] else 'Offen') }}" data-paidbool="{{ '1' if i['paid_date'] else '0' }}"
+       data-pdf="{{ url_for('invoice_pdf', iid=i['id']) }}" data-id="{{ i['id'] }}">
+    <div style="min-width:0"><div class="num" style="font-weight:600;font-size:14px">#{{ i['number'] }}</div><div class="muted" style="font-size:12px;margin-top:1px">{{ i['issue_date']|de_date }}</div></div>
+    <div style="min-width:0;font-size:15px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i['customer_name'] }}</div>
+    <div>{% if i['paid_date'] %}<span class="status status--paid">Bezahlt</span>{% elif i['sent_at'] %}<span class="status" style="background:var(--azure-tint);color:var(--azure-deep)">Versendet</span>{% else %}<span class="status status--due">Offen</span>{% endif %}</div>
+    <div class="num" style="text-align:right;font-weight:600;font-size:16px">{{ i['gross']|eur }}</div>
+    {% if i['pdf_path'] %}
+    <a href="{{ url_for('invoice_pdf', iid=i['id']) }}" target="_blank" title="PDF" onclick="event.stopPropagation()" style="border:1px solid var(--field-border);background:var(--surface);width:32px;height:32px;border-radius:9px;color:var(--ink-2);display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></a>
+    {% else %}
+    <form method="post" action="{{ url_for('invoice_pdf_upload', iid=i['id']) }}" enctype="multipart/form-data" style="margin:0" onclick="event.stopPropagation()">
+      <label title="Kein PDF hinterlegt – hochladen" style="border:1px dashed var(--field-border);background:var(--surface);width:32px;height:32px;border-radius:9px;color:var(--ink-4);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12h14"/></svg>
+        <input type="file" name="pdf" accept=".pdf,image/*" onchange="this.form.submit()" style="display:none">
+      </label>
+    </form>
+    {% endif %}
+    <button type="button" class="inv-del" title="Rechnung löschen"
+            data-action="{{ url_for('invoice_delete', iid=i['id']) }}"
+            onclick="event.stopPropagation();askDeleteInv(this)"
+            style="border:0;background:none;padding:0;width:28px;height:28px;border-radius:8px;color:var(--ink-4);display:flex;align-items:center;justify-content:center;cursor:pointer">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+    </button>
+  </div>
+  {% else %}<div class="muted" style="padding:44px;text-align:center">Keine Rechnungen in {{ year }}.</div>{% endfor %}
+</div>
+
+{% else %}
+{# ── Eingangsrechnungen-Liste (Ausgaben) ── #}
+<div class="card" style="padding:0;overflow:hidden">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 200px 130px 44px;align-items:center;gap:16px;padding:11px 20px;border-bottom:1px solid var(--line-3);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-4)">
+    <span>Anbieter</span><span>Konto</span><span style="text-align:right">Betrag</span><span></span>
+  </div>
+  {% for e in rows %}
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 200px 130px 44px;align-items:center;gap:16px;padding:14px 20px;border-bottom:1px solid var(--line-3)">
+    <div style="min-width:0"><div style="font-weight:600;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e['vendor'] }}</div><div class="muted" style="font-size:12px;margin-top:1px">{{ e['date']|de_date }}</div></div>
+    <div class="muted" style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ e['category'] }}</div>
+    <div class="num" style="text-align:right;font-weight:600;font-size:16px">{{ e['gross']|eur }}</div>
+    {% if e['receipt_path'] %}<a href="{{ url_for('expense_receipt', eid=e['id']) }}" target="_blank" title="Beleg" style="border:1px solid var(--field-border);background:var(--surface);width:32px;height:32px;border-radius:9px;color:var(--ink-2);display:flex;align-items:center;justify-content:center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/></svg></a>{% else %}<span></span>{% endif %}
+  </div>
+  {% else %}<div class="muted" style="padding:44px;text-align:center">Keine Belege in {{ year }}.</div>{% endfor %}
+</div>
+{% endif %}
+{% endif %}
+
+{# ── Rechnungs-Modal ──────────────────────────────────────────────── #}
+<div id="inv-modal" class="scrim" hidden>
+  <div class="modal">
+    <div style="padding:30px 32px 24px">
+      <div class="row" style="justify-content:space-between;align-items:flex-start;margin-bottom:24px">
+        <div class="row" style="gap:12px"><div style="width:38px;height:38px;border-radius:11px;background:var(--ink);display:flex;align-items:center;justify-content:center"><span class="disp" style="color:#fff;font-weight:700;font-size:19px">K</span></div>
+          <div><div class="disp" style="font-weight:700;font-size:18px">Rechnung</div><div class="num muted" id="im-no" style="font-size:13px"></div></div></div>
+        <button class="iconbtn" onclick="closeModal('inv-modal')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div class="row" style="justify-content:space-between;gap:24px;margin-bottom:20px;align-items:flex-start">
+        <div><div class="muted" style="font-size:11px;margin-bottom:4px">Von</div><div style="font-size:14px;font-weight:600">{{ biz_name }}</div><div class="muted" style="font-size:13px">{{ biz_place }}</div></div>
+        <div style="text-align:right;max-width:250px"><div class="muted" style="font-size:11px;margin-bottom:4px">An</div><div id="im-client" style="font-size:14px;font-weight:600"></div><div class="muted" id="im-addr" style="font-size:13px"></div><div class="num muted" id="im-vatid" style="font-size:12px;margin-top:3px"></div></div>
+      </div>
+      <div class="row" style="justify-content:space-between;font-size:12.5px;color:var(--ink-3);border-top:1px solid var(--line-3);padding-top:14px;margin-bottom:14px"><span id="im-issued"></span><span id="im-status-pill"></span></div>
+      <div class="stack" style="gap:7px;border-top:1px solid var(--line-3);padding-top:14px">
+        <div class="row" style="justify-content:space-between;font-size:13px;color:var(--ink-3)"><span>Netto</span><span class="num" id="im-net"></span></div>
+        <div class="row" style="justify-content:space-between;font-size:13px;color:var(--ink-3)"><span>USt</span><span class="num" id="im-vatamt"></span></div>
+        <div class="row" style="justify-content:space-between;align-items:baseline;margin-top:6px"><span style="font-size:14px;font-weight:600">Gesamt</span><span class="disp" id="im-gross" style="font-weight:700;font-size:28px"></span></div>
+      </div>
+      <div class="row" style="gap:10px;margin-top:22px">
+        <a class="btn btn--primary" id="im-pdf" href="#" target="_blank">PDF öffnen</a>
+        <button class="btn btn--outline" id="im-paybtn" type="button" onclick="document.getElementById('im-payrow').hidden=!document.getElementById('im-payrow').hidden">Zahlung erfassen</button>
+      </div>
+      <div id="im-payrow" hidden style="margin-top:14px;border-top:1px solid var(--line-3);padding-top:14px">
+        <form id="im-payform" method="post" class="stack">
+          <input type="hidden" name="create_tx" value="1">
+          <div class="row" style="gap:12px">
+            <div class="field" style="flex:1"><label>Zahldatum</label><input class="input" type="date" name="paid_date" value="{{ today }}"></div>
+            <div class="field" style="flex:1"><label>Betrag</label><input class="input" name="amount" id="im-payamt"></div>
+          </div>
+          <div class="row" style="gap:12px">
+            <div class="field" style="width:120px"><label>Währung</label><select class="select" name="currency">{% for c in fx_currencies %}<option value="{{ c }}" {{ 'selected' if c==home_currency }}>{{ c }}</option>{% endfor %}</select></div>
+            <div class="field" style="flex:1"><label>Konto / Methode</label><input class="input" name="method" placeholder="Revolut, Bar, altes Konto"></div>
+          </div>
+          <div class="row" style="justify-content:flex-end"><button class="btn btn--accent" type="submit">Als bezahlt buchen</button></div>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── Löschen-Bestätigung ──────────────────────────────────────────── #}
+<div id="del-modal" class="scrim" hidden>
+  <div class="modal" style="width:min(420px,94vw)">
+    <div style="padding:28px 28px 24px">
+      <div style="width:42px;height:42px;border-radius:12px;background:var(--coral-tint);color:var(--coral-deep);display:flex;align-items:center;justify-content:center;margin-bottom:18px">
+        <svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/><path d="M10 11v5M14 11v5"/></svg>
+      </div>
+      <div class="disp" id="dm-title" style="font-weight:700;font-size:19px;letter-spacing:var(--tracking-tight)"></div>
+      <p class="muted" id="dm-text" style="margin:7px 0 0;font-size:13.5px;line-height:1.55"></p>
+      <div style="border:1px solid var(--line-2);border-radius:12px;padding:13px 14px;margin-top:18px;display:flex;flex-direction:column;gap:7px">
+        <div class="row" style="justify-content:space-between;gap:16px">
+          <span class="num muted" style="font-size:12.5px" id="dm-no"></span>
+          <span class="num" style="font-size:14px;font-weight:600" id="dm-amount"></span>
+        </div>
+        <div style="font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis" id="dm-client"></div>
+      </div>
+      <form method="post" id="dm-form" class="row" style="gap:10px;margin-top:22px">
+        <button type="button" class="btn btn--outline" style="flex:1;justify-content:center" onclick="closeModal('del-modal')">Abbrechen</button>
+        <button type="submit" class="btn" id="dm-submit" style="flex:1;justify-content:center;background:var(--coral);color:#fff">Löschen</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── Kundennummer ─────────────────────────────────────────────────── #}
+<div id="cn-modal" class="scrim" hidden>
+  <div class="modal" style="width:min(420px,94vw)">
+    <div style="padding:28px 28px 24px">
+      <div class="disp" style="font-weight:700;font-size:19px;letter-spacing:var(--tracking-tight)">Kundennummer</div>
+      <p class="muted" style="margin:7px 0 0;font-size:13.5px;line-height:1.55">
+        Frei wählbar, muss aber eindeutig sein. Leer lassen entfernt die Nummer.
+      </p>
+      <div style="font-size:14px;font-weight:600;margin-top:16px" id="cn-name"></div>
+      <form method="post" id="cn-form" class="stack" style="margin-top:12px">
+        <div class="field">
+          <label>Nummer</label>
+          <input class="input num" id="cn-input" name="number" autocomplete="off">
+          <div class="muted" style="font-size:12.5px;margin-top:6px">
+            <button type="button" id="cn-suggest" class="btn btn--ghost btn--sm" style="padding:2px 6px">Nächste freie Nummer</button>
+          </div>
+        </div>
+        <div class="row" style="gap:10px;margin-top:6px">
+          <button type="button" class="btn btn--outline" style="flex:1;justify-content:center" onclick="closeModal('cn-modal')">Abbrechen</button>
+          <button type="submit" class="btn btn--primary" style="flex:1;justify-content:center">Speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+  function invChip(btn){ document.querySelectorAll('.chip[data-f]').forEach(c=>c.classList.remove('chip--active')); btn.classList.add('chip--active');
+    const f=btn.dataset.f; document.querySelectorAll('.inv-row').forEach(r=>{ r.style.display = (f==='all' || (f==='paid')===(r.dataset.paid==='1'))?'grid':'none'; }); }
+  function fillDelModal({title, text, line, name, amount, action, blocked}){
+    document.getElementById('dm-title').textContent=title;
+    document.getElementById('dm-text').textContent=text;
+    document.getElementById('dm-no').textContent=line||'';
+    document.getElementById('dm-client').textContent=name||'';
+    document.getElementById('dm-amount').textContent=amount||'';
+    document.getElementById('dm-form').action=action;
+    const s=document.getElementById('dm-submit');
+    s.disabled=!!blocked; s.style.background=blocked?'':'var(--coral)'; s.style.color=blocked?'':'#fff';
+    openModal('del-modal'); }
+  function askDeleteInv(btn){ const d=btn.closest('.inv-row').dataset;
+    fillDelModal({title:'Rechnung löschen?',
+      text:'Die Rechnung und ihr PDF werden endgültig entfernt. Zugeordnete Zahlungen bleiben erhalten und werden wieder auf „offen“ gesetzt.',
+      line:'#'+d.no, name:d.client, amount:d.gross, action:btn.dataset.action}); }
+  function askDeleteCust(btn){ const n=+btn.dataset.count, list=btn.dataset.invoices||'';
+    fillDelModal({title:'Kunde löschen?',
+      text: n ? 'Der Kunde wird aus dem Register entfernt. Seine Rechnungen ('+list+') bleiben unverändert bestehen – Name, Adresse und USt-IdNr. sind dort eingefroren.'
+              : 'Der Kunde wird aus dem Register entfernt.',
+      line:'Kunde', name:btn.dataset.name, amount: n ? n+(n===1?' Rechnung':' Rechnungen') : 'keine Rechnungen',
+      action:btn.dataset.action}); }
+  function askCustNumber(btn){ const d=btn.dataset;
+    document.getElementById('cn-name').textContent=d.name;
+    document.getElementById('cn-form').action=d.action;
+    const inp=document.getElementById('cn-input');
+    inp.value=d.number; inp.placeholder=d.suggest;
+    document.getElementById('cn-suggest').onclick=()=>{ inp.value=d.suggest; inp.focus(); };
+    openModal('cn-modal'); setTimeout(()=>{ inp.focus(); inp.select(); },40); }
+  function openInv(r){ const d=r.dataset;
+    document.getElementById('im-no').textContent='#'+d.no;
+    document.getElementById('im-client').textContent=d.client;
+    document.getElementById('im-addr').textContent=d.addr;
+    document.getElementById('im-vatid').textContent=d.vatid;
+    document.getElementById('im-issued').textContent='Ausgestellt '+d.issued;
+    document.getElementById('im-status-pill').innerHTML='<span class="status '+(d.paidbool==='1'?'status--paid':'status--due')+'">'+d.status+'</span>';
+    document.getElementById('im-net').textContent=d.net;
+    document.getElementById('im-vatamt').textContent=d.vatamt;
+    document.getElementById('im-gross').textContent=d.gross;
+    document.getElementById('im-pdf').href=d.pdf;
+    const pay=document.getElementById('im-paybtn'), payrow=document.getElementById('im-payrow');
+    if(d.paidbool==='1'){ pay.style.display='none'; payrow.hidden=true; }
+    else { pay.style.display=''; document.getElementById('im-payform').action='/invoices/'+d.id+'/pay';
+      document.getElementById('im-payamt').value=d.grossnum; payrow.hidden=true; }
+    openModal('inv-modal');
+  }
+</script>
+{% endblock %}

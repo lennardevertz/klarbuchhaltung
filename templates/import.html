@@ -1,0 +1,26 @@
+{% extends "base_klar.html" %}
+{% block title %}Import · Klar{% endblock %}
+{% block body %}
+
+<div class="kl-pagehead"><div><h1>Import</h1><p class="sub">Rechnungen aus CSV importieren</p></div>
+  <a class="btn btn--outline" href="{{ url_for('import_template') }}">Vorlage laden</a>
+</div>
+
+<div class="grid-2" style="align-items:start">
+  <div class="card">
+    <div style="font-size:15px;font-weight:600;margin-bottom:16px">CSV hochladen</div>
+    <form method="post" enctype="multipart/form-data" class="stack">
+      <input class="input" type="file" name="file" accept=".csv,text/csv" required style="padding:9px 11px">
+      <label class="row" style="gap:9px;cursor:pointer"><input type="checkbox" name="no_pdf" style="width:auto">Kein PDF generieren (nur Daten importieren)</label>
+      <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit">Importieren</button></div>
+    </form>
+  </div>
+  <div class="card">
+    <div style="font-size:15px;font-weight:600;margin-bottom:12px">Erwartete Spalten</div>
+    <div class="row" style="gap:7px;flex-wrap:wrap">
+      {% for c in columns %}<span class="tag" style="font-size:12px"><span class="num">{{ c }}</span></span>{% endfor %}
+    </div>
+    <p class="muted" style="font-size:12.5px;margin-top:14px">Zahlungen (Bank-CSV) importierst du unter <a href="{{ url_for('zahlungen') }}">Zahlungen</a>, nicht hier.</p>
+  </div>
+</div>
+{% endblock %}

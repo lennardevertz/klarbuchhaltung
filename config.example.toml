@@ -1,0 +1,51 @@
+# ─────────────────────────────────────────────────────────────
+# Konfiguration für dein Buchhaltungs-Tool
+# Kopiere diese Datei nach  config.toml  und trage deine Daten ein.
+# ─────────────────────────────────────────────────────────────
+
+[business]
+name          = "Vorname Nachname - Firma"
+owner         = "Vorname Nachname"       # für Unterschrift & Kontoinhaber
+address_lines = ["Musterstraße 1", "12345 Musterstadt", "Germany"]
+vat_id        = "DE123456789"            # USt-IdNr. (erscheint auf der Rechnung)
+tax_number    = ""                        # Steuernummer (intern, nicht auf der Rechnung)
+email         = "mail@example.com"
+phone         = ""
+
+[bank]
+holder = "Vorname Nachname"
+iban   = "DE00 0000 0000 0000 0000 00"
+bic    = "XXXXDEXXXXX"
+
+[invoice]
+currency           = "EUR"
+default_vat_rate   = 19
+payment_terms_days = 14
+language           = "en"       # PDF-Sprache: "en" oder "de"
+signature_path     = ""         # optional: Pfad zu einer Unterschrift-PNG
+intro   = "I would like to thank you for the good cooperation and accordingly invoice you for the following deliverables:"
+closing = "If you have any questions, please feel free to contact me at any time."
+signoff = "Best regards,"
+reverse_charge_note = "Reverse charge: VAT to be accounted for by the recipient (Steuerschuldnerschaft des Leistungsempfängers according to Art. 196 EU VAT Directive and § 13b UStG)."
+third_country_note  = "Not subject to German VAT – place of supply outside the EU (§ 3a (2) UStG). Reverse charge: the customer is liable for any VAT due under local law."
+footer_note = ""
+
+[tax]
+taxation       = "ist"          # "ist" = USt bei Zahlungseingang, "soll" = nach Rechnungsdatum
+va_period      = "quarter"      # "quarter" oder "month"
+small_business = false          # Kleinunternehmer §19? -> false
+dauerfrist     = false          # Dauerfristverlängerung beantragt?
+# Sondervorauszahlung gibt es NUR bei monatlicher Abgabe (1/11 der Vorjahres-Zahllast); sie wird
+# in der Voranmeldung für Dezember unter Kz 39 angerechnet. Quartalszahler lassen das auf 0.
+sondervorauszahlung = 0.0
+
+[bookkeeping]
+# Kontenkatalog für Ausgaben (SKR03-orientiert, frei anpassbar). Format "Nr - Bezeichnung".
+expense_accounts = [
+  "4920 - Telefon",
+  "4930 - Bürobedarf",
+  "4945 - Fortbildungskosten",
+  "4909 - Bankgebühren / Nebenkosten Geldverkehr",
+  "4980 - Software / SaaS / sonstiger Betriebsbedarf",
+  "4980 - Sonstiges",
+]

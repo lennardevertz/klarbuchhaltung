@@ -1,0 +1,41 @@
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        # Windows muss mitlaufen: dort fehlen die PTY-Module, und genau das
+        # hat app.py früher schon beim Import zerlegt.
+        os: [macos-latest, ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Systempakete für pywebview (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgirepository1.0-dev libcairo2-dev \
+                                  gir1.2-webkit2-4.1 python3-gi
+
+      - name: Abhängigkeiten
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pytest
+
+      - name: Tests
+        run: python -m pytest -q
+
+      - name: App importierbar
+        run: python -c "import app, core, assistant; print('Terminal:', app.TERMINAL_MOEGLICH)"

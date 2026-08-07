@@ -1,0 +1,184 @@
+{# Ersteinrichtung eines Profils – läuft in der App-Hülle, aber ohne
+   Navigation (siehe setup_modus in _sidebar.html). #}
+{% extends "base_klar.html" %}
+{% block title %}Einrichtung · Buchhaltung{% endblock %}
+
+{% block head %}
+<style>
+  .wrap{ max-width:660px; margin:0 auto; padding:8px 0 40px; }
+  h1{ font-family:var(--font-display,inherit); font-size:31px; font-weight:700;
+    letter-spacing:var(--tracking-tight); margin:0 0 8px; }
+  .lead{ color:var(--ink-2); font-size:15px; margin:0 0 30px; line-height:1.55; }
+  .card{ background:var(--surface); border:1px solid var(--line-2); border-radius:var(--r-2xl,16px);
+    padding:24px; margin-bottom:18px; }
+  .card h2{ font-family:var(--font-display,inherit); font-size:16px; font-weight:600; margin:0 0 4px; }
+  .card .hint{ color:var(--ink-3); font-size:13px; margin:0 0 18px; }
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .grid .full{ grid-column:1 / -1; }
+  .field label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-2); margin-bottom:6px; }
+  .field .input, .field select{ width:100%; box-sizing:border-box; height:40px; padding:0 12px;
+    border:1px solid var(--field-border); border-radius:10px; background:var(--surface);
+    font:inherit; font-size:14px; color:var(--ink); }
+  .field .input:focus, .field select:focus{ outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent; }
+  .field .sub{ color:var(--ink-3); font-size:12px; margin:6px 0 0; }
+  .check{ display:flex; align-items:flex-start; gap:10px; font-size:14px; color:var(--ink); }
+  .check input{ margin-top:2px; }
+  .flash{ border-radius:10px; padding:11px 14px; font-size:13.5px; margin-bottom:12px;
+    background:var(--coral-tint); color:var(--coral-deep); }
+  .actions{ display:flex; align-items:center; justify-content:space-between; gap:16px; margin-top:26px; }
+  .actions .note{ color:var(--ink-3); font-size:12.5px; }
+  .go{ border:none; background:var(--ink); color:#fff; height:44px; padding:0 26px;
+    border-radius:11px; font:inherit; font-size:15px; font-weight:600; cursor:pointer; }
+  .go:hover{ background:#000; }
+  @media (max-width:560px){ .grid{ grid-template-columns:1fr } }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="wrap">
+  <h1>{{ profil.name if profil else 'Willkommen' }} einrichten</h1>
+  <p class="lead">
+    Einmalig die Stammdaten dieses Profils – daraus entstehen Rechnungen, EÜR und
+    Umsatzsteuer-Voranmeldung. Alles bleibt lokal auf diesem Rechner und ist später in den
+    Einstellungen änderbar.
+  </p>
+
+  {% with msgs = get_flashed_messages(with_categories=true) %}
+    {% for kat, m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}
+  {% endwith %}
+
+  <form method="post">
+    <div class="card">
+      <h2>Dein Unternehmen</h2>
+      <p class="hint">Erscheint als Absender auf der Rechnung.</p>
+      <div class="grid">
+        <div class="field full">
+          <label for="name">Firma / Anzeigename *</label>
+          <input class="input" id="name" name="name" required
+                 value="{{ form.name if form else (profil.name if profil else '') }}"
+                 placeholder="Vorname Nachname – Firma">
+        </div>
+        <div class="field full">
+          <label for="owner">Inhaber *</label>
+          <input class="input" id="owner" name="owner" required
+                 value="{{ form.owner if form else '' }}" placeholder="Vorname Nachname">
+          <p class="sub">Für Unterschrift und als Kontoinhaber.</p>
+        </div>
+        <div class="field full">
+          <label for="street">Straße und Hausnummer *</label>
+          <input class="input" id="street" name="street" required
+                 value="{{ form.street if form else '' }}" placeholder="Musterstraße 1">
+        </div>
+        <div class="field">
+          <label for="city">PLZ und Ort *</label>
+          <input class="input" id="city" name="city" required
+                 value="{{ form.city if form else '' }}" placeholder="12345 Musterstadt">
+        </div>
+        <div class="field">
+          <label for="country">Land</label>
+          <input class="input" id="country" name="country"
+                 value="{{ form.country if form else 'Germany' }}">
+        </div>
+        <div class="field">
+          <label for="vat_id">USt-IdNr.</label>
+          <input class="input" id="vat_id" name="vat_id"
+                 value="{{ form.vat_id if form else '' }}" placeholder="DE123456789">
+          <p class="sub">Steht auf der Rechnung. Leer lassen, wenn keine vorhanden.</p>
+        </div>
+        <div class="field">
+          <label for="tax_number">Steuernummer</label>
+          <input class="input" id="tax_number" name="tax_number"
+                 value="{{ form.tax_number if form else '' }}" placeholder="12/345/67890">
+          <p class="sub">Nur intern, nicht auf der Rechnung.</p>
+        </div>
+        <div class="field">
+          <label for="email">E-Mail</label>
+          <input class="input" id="email" name="email" type="email"
+                 value="{{ form.email if form else '' }}">
+        </div>
+        <div class="field">
+          <label for="phone">Telefon</label>
+          <input class="input" id="phone" name="phone" value="{{ form.phone if form else '' }}">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Bankverbindung</h2>
+      <p class="hint">Steht als Zahlungsziel auf der Rechnung. Kann später ergänzt werden.</p>
+      <div class="grid">
+        <div class="field full">
+          <label for="bank_holder">Kontoinhaber</label>
+          <input class="input" id="bank_holder" name="bank_holder"
+                 value="{{ form.bank_holder if form else '' }}" placeholder="wie Inhaber, wenn leer">
+        </div>
+        <div class="field">
+          <label for="iban">IBAN</label>
+          <input class="input" id="iban" name="iban" value="{{ form.iban if form else '' }}">
+        </div>
+        <div class="field">
+          <label for="bic">BIC</label>
+          <input class="input" id="bic" name="bic" value="{{ form.bic if form else '' }}">
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Rechnung &amp; Steuer</h2>
+      <p class="hint">Die üblichen Vorgaben sind schon gesetzt.</p>
+      <div class="grid">
+        <div class="field">
+          <label for="currency">Währung</label>
+          <select id="currency" name="currency">
+            {% for c in ['EUR','USD','GBP','CHF'] %}
+            <option value="{{ c }}" {{ 'selected' if c == 'EUR' }}>{{ c }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="field">
+          <label for="language">Sprache der Rechnungs-PDF</label>
+          <select id="language" name="language">
+            <option value="de">Deutsch</option>
+            <option value="en">Englisch</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="default_vat_rate">USt-Satz (%)</label>
+          <input class="input" id="default_vat_rate" name="default_vat_rate" type="number"
+                 min="0" max="100" value="19">
+        </div>
+        <div class="field">
+          <label for="payment_terms_days">Zahlungsziel (Tage)</label>
+          <input class="input" id="payment_terms_days" name="payment_terms_days" type="number"
+                 min="0" max="365" value="14">
+        </div>
+        <div class="field">
+          <label for="taxation">Besteuerung</label>
+          <select id="taxation" name="taxation">
+            <option value="ist">Ist – USt bei Zahlungseingang</option>
+            <option value="soll">Soll – USt nach Rechnungsdatum</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="va_period">Voranmeldung</label>
+          <select id="va_period" name="va_period">
+            <option value="quarter">Quartalsweise</option>
+            <option value="month">Monatlich</option>
+          </select>
+        </div>
+        <div class="field full" style="border-top:1px solid var(--line-3);padding-top:16px">
+          <label class="check">
+            <input type="checkbox" name="small_business" value="1">
+            <span>Kleinunternehmer nach § 19 UStG – keine Umsatzsteuer ausweisen</span>
+          </label>
+        </div>
+      </div>
+    </div>
+
+    <div class="actions">
+      <span class="note">* Pflichtfeld. Alles andere lässt sich später nachtragen.</span>
+      <button class="go" type="submit">Loslegen</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

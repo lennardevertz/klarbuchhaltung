@@ -1,0 +1,17 @@
+# Persönliche Daten & Zustand – nicht ins Repo / Backup separat!
+config.toml
+data/
+profiles/
+
+# Build-Ergebnisse
+build/
+dist/
+*.spec.bak
+import_pdfs/
+.venv/
+__pycache__/
+*.pyc
+import_bb/
+
+# macOS
+.DS_Store

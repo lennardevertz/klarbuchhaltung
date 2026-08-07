@@ -1,0 +1,948 @@
+{% extends "base_klar.html" %}
+{% block title %}Banking · Klar{% endblock %}
+{% block body %}
+
+<style>
+  /* hidden muss inline display: schlagen — sonst bleiben Spinner und
+     Freeze-Overlay dauerhaft sichtbar. */
+  [hidden]{ display:none !important; }
+  @keyframes klspin{ to{ transform:rotate(360deg) } }
+  .bk-spin{ border:3px solid var(--line); border-top-color:var(--ink); border-radius:50%;
+    animation:klspin .7s linear infinite; }
+  .bk-feat{ display:flex; align-items:center; gap:12px; background:var(--surface);
+    border:1px solid var(--card-border, var(--line-2)); border-radius:13px; padding:13px 16px; }
+  .bk-feat .ic{ width:30px; height:30px; border-radius:9px; background:var(--accent-tint);
+    color:var(--accent-deep); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .bk-act{ cursor:pointer; border:1px solid var(--line-2); background:var(--surface); border-radius:14px;
+    padding:12px 8px; display:flex; flex-direction:column; align-items:center; gap:8px;
+    font:600 12px var(--font-ui); color:var(--ink); transition:border-color var(--dur-fast) var(--ease); }
+  .bk-act:hover{ border-color:var(--ink); }
+  .bk-act .ic{ width:38px; height:38px; border-radius:12px; display:flex; align-items:center;
+    justify-content:center; background:var(--wash); color:#3C3E49; }
+  .bk-act.is-on{ border-color:var(--azure); }
+  .bk-act.is-on .ic{ background:var(--azure-tint); color:var(--azure-deep); }
+  .bk-lbl{ display:block; font-size:12px; font-weight:600; color:#3C3E49; margin-bottom:6px; }
+  .bk-inp{ width:100%; font:400 14px var(--font-ui); color:var(--ink); padding:11px 13px;
+    border-radius:11px; border:1.5px solid var(--field-border); background:var(--surface); outline:none; }
+  .bk-inp:focus{ border-color:var(--ink); }
+  .bk-kv{ display:flex; justify-content:space-between; gap:12px; }
+  .bk-kv > span:first-child{ color:var(--ink-3); }
+  .bk-box{ background:var(--surface-2); border:1px solid var(--line-2); border-radius:12px; padding:14px 16px; }
+  .bk-box .k{ font-size:11px; color:var(--ink-3); font-weight:600; text-transform:uppercase;
+    letter-spacing:var(--tracking-caps); margin-bottom:5px; }
+  .bk-note{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-3); }
+  .bk-x{ cursor:pointer; border:none; background:var(--wash); width:32px; height:32px; border-radius:9px;
+    color:var(--ink-2); display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+  .bk-env{ cursor:pointer; border:none; background:transparent; font:600 12px var(--font-ui);
+    color:var(--ink-3); padding:5px 12px; border-radius:var(--r-pill); }
+  .bk-env.is-on{ background:var(--surface); color:var(--ink); box-shadow:var(--shadow-sm); }
+</style>
+
+{% set ic_shield %}<path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/>{% endset %}
+{% set ic_check %}<path d="M20 6 9 17l-5-5"/>{% endset %}
+
+{% if wirex_sandbox %}
+<div style="display:flex;align-items:center;gap:10px;background:var(--amber-tint);color:var(--amber-deep);border-radius:12px;padding:10px 16px;margin-bottom:18px;font-size:13px;font-weight:600">
+  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M10.3 3.9 2.4 18a1.5 1.5 0 0 0 1.3 2.2h16.6a1.5 1.5 0 0 0 1.3-2.2L13.7 3.9a1.5 1.5 0 0 0-2.6 0z"/><path d="M12 9v4M12 17h.01"/></svg>
+  Sandbox-Umgebung · Testgeld auf Base Sepolia, kein echtes Geld. Eigenes Testkonto, getrennt vom Live-Konto.
+</div>
+{% endif %}
+
+<div class="kl-pagehead">
+  <div>
+    <h1>Banking</h1>
+    <p class="sub">Deine Visa-Karte, dein EUR-IBAN und dein Guthaben — abgesichert per Passkey.</p>
+  </div>
+  <div style="display:flex;align-items:center;gap:10px">
+    {# Umgebungsschalter – Sandbox = Testgeld, kein echtes Geld. #}
+    <div style="display:inline-flex;background:var(--wash);border-radius:var(--r-pill);padding:3px">
+      <button class="bk-env {{ 'is-on' if not wirex_sandbox }}" onclick="bkSetEnv('prod')">Live</button>
+      <button class="bk-env {{ 'is-on' if wirex_sandbox }}" onclick="bkSetEnv('sandbox')">Sandbox</button>
+    </div>
+    <span style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:7px 13px;border-radius:var(--r-pill);background:var(--accent-tint);color:var(--accent-deep)">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ic_shield }}<path d="m9 12 2 2 4-4"/></svg>Passkey aktiv</span>
+    {% if account %}
+    <button onclick="bkLogout()" class="btn btn--outline btn--sm" title="Konto lokal abmelden und mit anderem Passkey neu anmelden">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>Abmelden</button>
+    {% endif %}
+  </div>
+</div>
+
+{# ── EMPTY STATE · noch nicht onboarded ─────────────────────────────── #}
+<div id="bk-empty" {% if activated or kyc_pending %}hidden{% endif %} style="max-width:560px;margin:4vh auto 0;text-align:center;display:flex;flex-direction:column;align-items:center">
+  <div style="width:200px;height:126px;border-radius:16px;background:linear-gradient(135deg,#2A2C36,#16171D 60%,#0E0F14);box-shadow:0 20px 40px -22px var(--shadow-color);position:relative;margin-bottom:26px;transform:rotate(-4deg)">
+    <div style="position:absolute;inset:0;padding:16px;display:flex;flex-direction:column;justify-content:space-between;color:#fff">
+      <div class="disp" style="font-weight:700;font-size:14px">Klar</div>
+      <div class="num" style="font-size:12px;letter-spacing:.14em;opacity:.85">•••• •••• •••• ••••</div>
+    </div>
+    <div style="position:absolute;inset:0;border-radius:16px;border:1px dashed rgba(255,255,255,.25)"></div>
+  </div>
+
+  <h2 class="disp" style="margin:0 0 8px;font-weight:700;font-size:26px">Aktiviere dein Geschäftskonto</h2>
+  <p style="margin:0 auto 24px;font-size:15px;color:var(--ink-2);line-height:var(--lh-relaxed);max-width:400px">
+    Hol dir eine Visa-Karte und einen EUR-IBAN direkt in Klar — abgesichert per Passkey, ohne Passwort.
+    Karteneinnahmen fließen automatisch in deine Buchhaltung.</p>
+
+  <div style="display:flex;flex-direction:column;gap:11px;width:100%;max-width:380px;text-align:left;margin-bottom:26px">
+    {% for feat in ["EUR-IBAN für Ein- & Ausgänge (SEPA)",
+                    "Virtuelle Visa sofort, physische auf Wunsch",
+                    "Login per Passkey — kein Passwort"] %}
+    <div class="bk-feat">
+      <span class="ic"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">{{ ic_check }}</svg></span>
+      <span style="font-size:14px">{{ feat }}</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <button id="bk-start" onclick="bkOpenOnboard()" style="cursor:pointer;border:none;font:600 15px var(--font-ui);color:#fff;background:var(--ink);padding:14px 28px;border-radius:13px;display:inline-flex;align-items:center;gap:9px">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round">{{ ic_shield }}</svg>Konto einrichten</button>
+
+  <div style="margin-top:14px;font-size:13.5px;color:var(--ink-2)">
+    Schon ein Nuri-Konto? <a href="#" onclick="bkSignin();return false" style="color:var(--accent-deep);font-weight:600;text-decoration:none">Mit Passkey anmelden</a>
+  </div>
+  <p id="bk-signin-status" style="margin:8px 0 0;font-size:12.5px;color:var(--ink-3)"></p>
+
+  {% if account %}
+  <button onclick="bkReset()" class="btn btn--ghost btn--sm" style="margin-top:14px">Angefangenes Onboarding verwerfen</button>
+  {% endif %}
+
+  <p style="margin:16px 0 0;font-size:12px;color:var(--ink-4, var(--ink-3))">Bereitgestellt über Wirex · reguliert · KYC einmalig</p>
+</div>
+
+{# ── KYC OFFEN · Konto existiert, ist aber ohne Verifizierung nutzlos ── #}
+<div id="bk-kyc" {% if not kyc_pending %}hidden{% endif %} style="max-width:560px;margin:4vh auto 0;text-align:center;display:flex;flex-direction:column;align-items:center">
+  <div style="width:200px;height:126px;border-radius:16px;background:linear-gradient(135deg,#2A2C36,#16171D 60%,#0E0F14);box-shadow:0 20px 40px -22px var(--shadow-color);position:relative;margin-bottom:26px;transform:rotate(-4deg);opacity:.55">
+    <div style="position:absolute;inset:0;padding:16px;display:flex;flex-direction:column;justify-content:space-between;color:#fff">
+      <div class="disp" style="font-weight:700;font-size:14px">Klar</div>
+      <div class="num" style="font-size:12px;letter-spacing:.14em;opacity:.85">•••• •••• •••• ••••</div>
+    </div>
+  </div>
+
+  <span style="display:inline-flex;align-items:center;gap:7px;font-size:12.5px;font-weight:600;padding:6px 13px;border-radius:var(--r-pill);background:var(--amber-tint);color:var(--amber-deep);margin-bottom:14px">
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>
+    Verifizierung: {{ kyc_label }}</span>
+
+  <h2 class="disp" style="margin:0 0 8px;font-weight:700;font-size:26px">Noch ein Schritt: Identität bestätigen</h2>
+  <p style="margin:0 auto 24px;font-size:15px;color:var(--ink-2);line-height:var(--lh-relaxed);max-width:420px">
+    Dein Konto ist angelegt, aber <strong>IBAN und Karte gibt es erst nach der Verifizierung</strong> —
+    das schreibt die Geldwäscheprüfung vor. Du brauchst einen Ausweis und ein paar Minuten.</p>
+
+  {% if kyc_url %}
+  <a href="{{ kyc_url }}" target="_blank" rel="noopener" style="text-decoration:none;cursor:pointer;font:600 15px var(--font-ui);color:#fff;background:var(--ink);padding:14px 28px;border-radius:13px;display:inline-flex;align-items:center;gap:9px">
+    <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6"/><path d="M10 14 21 3"/><path d="M21 14v7H3V3h7"/></svg>Verifizierung fortsetzen</a>
+  <p style="margin:12px 0 0;font-size:12px;color:var(--ink-3)">Öffnet den gespeicherten Link bei Wirex.</p>
+  {% else %}
+  <button id="bk-kyc-continue" onclick="bkKycContinue()" style="cursor:pointer;border:none;font:600 15px var(--font-ui);color:#fff;background:var(--ink);padding:14px 28px;border-radius:13px">
+    Verifizierung fortsetzen</button>
+  <p style="margin:12px 0 0;font-size:12px;color:var(--ink-3)">Startet die Verifizierung neu über deinen Passkey.</p>
+  {% endif %}
+
+  <div id="bk-kyc-flow" hidden style="margin-top:18px;max-width:420px;width:100%;background:var(--surface);border:1px solid var(--line-2);border-radius:14px;padding:16px 18px;text-align:left">
+    <p id="bk-kyc-msg" style="font-size:13px;color:var(--ink-2);margin:0 0 12px;line-height:1.5"></p>
+    <div id="bk-kyc-link-box" hidden style="margin-bottom:12px">
+      <div style="font-size:11px;color:var(--ink-3);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px">Link (auf dem iPhone öffnen)</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input id="bk-kyc-url" readonly style="flex:1;min-width:0;font:400 12px var(--font-ui);color:var(--ink-2);padding:8px 10px;border-radius:9px;border:1px solid var(--field-border);background:var(--surface-2)">
+        <button onclick="bkKycCopy(this)" class="btn btn--outline btn--sm">Kopieren</button>
+      </div>
+      <button onclick="bkKycOpenHere()" class="btn btn--ghost btn--sm" style="margin-top:8px">Auf diesem Gerät versuchen</button>
+    </div>
+    <div id="bk-kyc-confirm" hidden style="display:flex;gap:8px">
+      <button onclick="bkKycCheck(this)" class="btn btn--primary btn--sm" style="flex:1">Ich habe signiert</button>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;margin-top:16px">
+    <button onclick="bkRecheckKyc(this)" class="btn btn--ghost btn--sm">Status neu prüfen</button>
+    <button onclick="bkReset()" class="btn btn--ghost btn--sm">Von vorn beginnen</button>
+  </div>
+</div>
+
+{# ── ONBOARDED STATE ────────────────────────────────────────────────── #}
+<div id="bk-active" {% if not activated %}hidden{% endif %}>
+
+  {# 3DS-Banner nur bei echter offener Kaufbestätigung (wirex_3ds_pending). #}
+  <div id="bk-3ds" {% if not bank.pending_amount %}hidden{% endif %} style="display:flex;align-items:center;gap:14px;background:var(--ink);border-radius:16px;padding:16px 20px;margin-bottom:20px">
+    <div style="width:38px;height:38px;border-radius:11px;background:rgba(255,255,255,.1);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+    <div style="flex:1;min-width:0">
+      <div style="font-size:14.5px;font-weight:600;color:#fff">Kauf bestätigen — <span class="num">{{ bank.pending_amount }}</span> bei {{ bank.pending_merchant }}</div>
+      <div style="font-size:12.5px;color:#B9BAC4">3-D-Secure · Karte ·· {{ bank.last4 }} · läuft in 4:12 ab</div>
+    </div>
+    <button onclick="bkHide3ds()" style="cursor:pointer;border:none;font:600 13px var(--font-ui);color:var(--ink);background:#fff;padding:9px 16px;border-radius:10px">Bestätigen</button>
+    <button onclick="bkHide3ds()" style="cursor:pointer;border:1px solid rgba(255,255,255,.25);background:transparent;font:600 13px var(--font-ui);color:#fff;padding:9px 14px;border-radius:10px">Ablehnen</button>
+  </div>
+
+  <div style="display:grid;grid-template-columns:400px 1fr;gap:24px;align-items:start">
+
+    {# LINKS: Karte + Aktionen #}
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div id="bk-card" style="position:relative;border-radius:20px;overflow:hidden;aspect-ratio:1.586;background:linear-gradient(135deg,#2A2C36,#16171D 60%,#0E0F14);transition:background var(--dur-base) var(--ease);box-shadow:0 20px 40px -22px var(--shadow-color)">
+        <div style="position:absolute;inset:0;padding:22px;display:flex;flex-direction:column;justify-content:space-between;color:#fff">
+          <div style="display:flex;align-items:flex-start;justify-content:space-between">
+            <div>
+              <div class="disp" style="font-weight:700;font-size:17px">Klar</div>
+              <div style="font-size:10.5px;opacity:.7;margin-top:2px">Business · virtuell</div>
+            </div>
+            <span id="bk-status" style="font-size:11px;font-weight:600;padding:4px 9px;border-radius:var(--r-pill);background:rgba(255,255,255,.16)">Aktiv</span>
+          </div>
+          <div>
+            <div class="num" style="font-size:19px;letter-spacing:.14em;font-weight:500">•••• •••• •••• <span id="bk-last4">{{ bank.last4 }}</span></div>
+            <div style="display:flex;align-items:flex-end;justify-content:space-between;margin-top:14px">
+              <div>
+                <div style="font-size:9px;opacity:.6;text-transform:uppercase;letter-spacing:.08em">Karteninhaber</div>
+                <div style="font-size:13px;font-weight:600;margin-top:2px">{{ bank.holder }}</div>
+              </div>
+              <div>
+                <div style="font-size:9px;opacity:.6;text-transform:uppercase;letter-spacing:.08em">Gültig</div>
+                <div class="num" style="font-size:13px;font-weight:600;margin-top:2px">{{ bank.expiry }}</div>
+              </div>
+              <svg width="42" height="14" viewBox="0 0 48 16" fill="#fff" style="opacity:.95"><text x="0" y="13" font-family="Space Grotesk,sans-serif" font-weight="700" font-size="15" font-style="italic">VISA</text></svg>
+            </div>
+          </div>
+        </div>
+        <div id="bk-frozen" hidden style="position:absolute;inset:0;background:rgba(59,110,245,.22);backdrop-filter:blur(1px);display:flex;align-items:center;justify-content:center">
+          <span style="display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:#fff;background:rgba(22,23,29,.55);padding:9px 16px;border-radius:var(--r-pill)">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M5 5l14 14M19 5 5 19"/></svg>Eingefroren</span>
+        </div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px">
+        <button id="bk-freeze-btn" class="bk-act" onclick="bkToggleFreeze()">
+          <span class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20M2 12h20M5 5l14 14M19 5 5 19"/></svg></span>
+          <span id="bk-freeze-lbl">Einfrieren</span></button>
+        <button class="bk-act" onclick="bkOpenReveal()">
+          <span class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg></span>Details</button>
+        <button class="bk-act" onclick="bkOpenLimit()">
+          <span class="ic"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 21v-7M4 10V3M12 21v-9M12 8V3M20 21v-5M20 12V3M1 14h6M9 8h6M17 16h6"/></svg></span>Limit</button>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--line-2);border-radius:16px;padding:18px 20px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+          <span style="font-size:14px;font-weight:600">Ausgabenlimit</span>
+          <span style="font-size:12px;color:var(--ink-3)">Tag · <span id="bk-limit-lbl" class="num">{{ bank.limit_label }}</span></span>
+        </div>
+        <div style="height:9px;border-radius:var(--r-pill);background:var(--wash);overflow:hidden;margin-bottom:8px">
+          <span id="bk-limit-bar" style="display:block;height:100%;width:0%;background:var(--accent);transition:width var(--dur-base) var(--ease)"></span></div>
+        <div style="display:flex;justify-content:space-between;font-size:12.5px">
+          <span id="bk-limit-used" class="num" style="color:var(--ink-2)">{{ bank.limit_used }} genutzt</span>
+          <span id="bk-limit-left" class="num" style="color:var(--ink-3)">{{ bank.limit_left }} übrig</span></div>
+      </div>
+    </div>
+
+    {# RECHTS: Guthaben, IBAN, physische Karte #}
+    <div style="display:flex;flex-direction:column;gap:18px">
+      <div style="background:var(--ink);border-radius:20px;padding:24px;color:#fff;position:relative;overflow:hidden">
+        <div style="position:absolute;top:-50px;right:-30px;width:200px;height:200px;border-radius:50%;background:var(--accent);opacity:.16"></div>
+        <div style="position:relative">
+          <div style="font-size:13px;font-weight:600;color:#B9BAC4">Verfügbares Guthaben</div>
+          <div id="bk-balance" class="disp" style="font-weight:700;font-size:44px;line-height:1;margin:8px 0 18px">{{ bank.balance }}</div>
+          <button onclick="bkOpenSepa()" style="width:100%;cursor:pointer;border:none;font:600 14px var(--font-ui);color:var(--ink);background:#fff;padding:13px;border-radius:12px;display:inline-flex;align-items:center;justify-content:center;gap:8px">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4z"/></svg>SEPA-Überweisung</button>
+        </div>
+      </div>
+
+      <div style="background:var(--surface);border:1px solid var(--line-2);border-radius:16px;padding:20px;display:flex;align-items:center;gap:18px">
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-3);font-weight:600;margin-bottom:8px">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><path d="M3 21h18M5 21V10l7-5 7 5v11M9 21v-6h6v6"/></svg>EUR-IBAN · für Eingänge</div>
+          <div id="bk-iban" class="num" style="font-size:18px;font-weight:600;letter-spacing:.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ bank.iban }}</div>
+        </div>
+        <button title="IBAN kopieren" onclick="bkCopyIban(this)" style="flex-shrink:0;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;border:1px solid var(--field-border);background:var(--surface);color:#3C3E49;width:44px;height:44px;border-radius:11px">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
+      </div>
+
+    </div>
+  </div>
+
+  {# ── Umsätze: anzeigen, auswählen, in die Zahlungen übernehmen ─────── #}
+  <div style="margin-top:24px;background:var(--surface);border:1px solid var(--line-2);border-radius:16px;overflow:hidden">
+    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;padding:16px 20px;border-bottom:1px solid var(--line-3)">
+      <div>
+        <div style="font-size:15px;font-weight:600">Umsätze</div>
+        <div id="bk-tx-sub" style="font-size:12.5px;color:var(--ink-3)">Wähle aus, was in deine Zahlungen soll.</div>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <button id="bk-tx-reload" class="btn btn--outline btn--sm" onclick="bkLoadTx(true)">Aktualisieren</button>
+        <button id="bk-tx-import" class="btn btn--primary btn--sm" onclick="bkImportTx()" disabled>Zu Zahlungen übernehmen</button>
+      </div>
+    </div>
+    <div id="bk-tx-list" style="max-height:420px;overflow:auto">
+      <div style="padding:26px 20px;text-align:center;color:var(--ink-3);font-size:13px">Noch nicht geladen.</div>
+    </div>
+  </div>
+</div>
+
+{# ── MODAL · Kartendaten ────────────────────────────────────────────── #}
+<div id="bk-reveal" class="scrim" hidden>
+  <div class="modal" style="width:440px;max-width:100%">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:22px 24px 4px">
+      <div class="disp" style="font-weight:700;font-size:19px">Kartendaten</div>
+      <button class="bk-x" onclick="closeModal('bk-reveal')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div style="padding:16px 24px 24px">
+      <div data-step="idle" style="text-align:center;padding:14px 0 4px">
+        <div style="width:56px;height:56px;border-radius:16px;background:var(--accent-tint);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{{ ic_shield }}<path d="m9 12 2 2 4-4"/></svg></div>
+        <div style="font-size:16px;font-weight:600;margin-bottom:6px">Mit Passkey bestätigen</div>
+        <p style="margin:0 0 20px;font-size:13.5px;color:var(--ink-2);line-height:var(--lh-normal)">Zum Anzeigen von Nummer &amp; CVV bestätige mit Face ID / Fingerabdruck. Kein Passwort nötig.</p>
+        <button onclick="bkReveal('details','bk-reveal')" style="width:100%;cursor:pointer;border:none;font:600 15px var(--font-ui);color:#fff;background:var(--ink);padding:13px;border-radius:12px">Bestätigen &amp; anzeigen</button>
+      </div>
+      <div data-step="signing" hidden style="text-align:center;padding:24px 0 4px">
+        <p style="font-size:13.5px;color:var(--ink-2);margin:0 0 14px">Signiere im Fenster – danach hier bestätigen.</p>
+        <div style="display:flex;gap:8px"><button class="btn btn--primary btn--sm bk-confirm" style="flex:1">Ich habe bestätigt</button>
+          <button class="btn btn--outline btn--sm bk-reopen">Erneut öffnen</button></div>
+        <p class="bk-sign-warn" style="font-size:12px;color:var(--amber-deep);margin:10px 0 0"></p>
+      </div>
+      <div data-step="done" hidden style="display:flex;flex-direction:column;gap:12px">
+        <div class="bk-box" style="display:flex;align-items:center;gap:12px">
+          <div style="flex:1;min-width:0"><div class="k">Kartennummer</div><div id="bk-rev-pan" class="num" style="font-size:19px;font-weight:600;letter-spacing:.08em">—</div></div>
+          <button id="bk-rev-pan-copy" title="Kopieren" style="flex-shrink:0;cursor:pointer;border:1px solid var(--field-border);background:var(--surface);color:#3C3E49;width:38px;height:38px;border-radius:10px;display:flex;align-items:center;justify-content:center">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
+        </div>
+        <div style="display:flex;gap:12px">
+          <div class="bk-box" style="flex:1"><div class="k">Gültig</div><div id="bk-rev-exp" class="num" style="font-size:17px;font-weight:600">—</div></div>
+          <div class="bk-box" style="flex:1;display:flex;align-items:center;gap:8px"><div style="flex:1"><div class="k">CVV</div><div id="bk-rev-cvv" class="num" style="font-size:17px;font-weight:600">—</div></div>
+            <button id="bk-rev-cvv-copy" title="Kopieren" style="flex-shrink:0;cursor:pointer;border:1px solid var(--field-border);background:var(--surface);color:#3C3E49;width:32px;height:32px;border-radius:9px;display:flex;align-items:center;justify-content:center">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg></button>
+          </div>
+        </div>
+        <div class="bk-note" style="margin-top:2px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5"/></svg>Aus Sicherheitsgründen bald wieder verborgen.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── MODAL · Tageslimit ─────────────────────────────────────────────── #}
+<div id="bk-limit" class="scrim" hidden>
+  <div class="modal" style="width:440px;max-width:100%;padding:24px">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:20px">
+      <div class="disp" style="font-weight:700;font-size:19px">Tageslimit</div>
+      <button class="bk-x" onclick="closeModal('bk-limit')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div data-step="form">
+      <div id="bk-limit-draft" class="disp" style="font-weight:700;font-size:38px;text-align:center;margin-bottom:6px">€2.000</div>
+      <input id="bk-limit-range" type="range" min="500" max="10000" step="500" value="2000" oninput="bkLimitDraft(this.value)" style="width:100%;accent-color:var(--ink);margin:14px 0 6px">
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:var(--ink-3)"><span class="num">€500</span><span class="num">€10.000</span></div>
+      <p class="bk-note" style="line-height:var(--lh-normal);margin:16px 0 20px">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">{{ ic_shield }}</svg>Änderung wird per Passkey signiert.</p>
+      <div style="display:flex;gap:10px">
+        <button class="btn btn--outline" style="flex:1" onclick="closeModal('bk-limit')">Abbrechen</button>
+        <button class="btn btn--primary" style="flex:1" onclick="bkSaveLimit()">Signieren &amp; speichern</button>
+      </div>
+    </div>
+    <div data-step="signing" hidden style="text-align:center;padding:14px 0 4px">
+      <p style="font-size:13.5px;color:var(--ink-2);margin:0 0 14px">Signiere im Fenster – danach hier bestätigen.</p>
+      <div style="display:flex;gap:8px"><button class="btn btn--primary btn--sm bk-confirm" style="flex:1">Ich habe bestätigt</button>
+        <button class="btn btn--outline btn--sm bk-reopen">Erneut öffnen</button></div>
+      <p class="bk-sign-warn" style="font-size:12px;color:var(--amber-deep);margin:10px 0 0"></p>
+    </div>
+    <div data-step="done" hidden style="text-align:center;padding:14px 0 4px">
+      <div style="width:52px;height:52px;border-radius:50%;background:var(--accent-tint);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;margin:0 auto 14px">
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">{{ ic_check }}</svg></div>
+      <div style="font-size:15px;font-weight:600;margin-bottom:16px">Limit aktualisiert</div>
+      <button class="btn btn--primary" style="width:100%" onclick="location.reload()">Fertig</button>
+    </div>
+  </div>
+</div>
+
+{# ── MODAL · SEPA ───────────────────────────────────────────────────── #}
+<div id="bk-sepa" class="scrim" hidden style="align-items:flex-start;padding:6vh 20px 20px;overflow-y:auto">
+  <div class="modal" style="width:460px;max-width:100%">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:22px 24px 4px">
+      <div>
+        <div class="disp" style="font-weight:700;font-size:19px">SEPA-Überweisung</div>
+        <div style="font-size:12.5px;color:var(--ink-3);margin-top:2px">von deinem EUR-IBAN</div></div>
+      <button class="bk-x" onclick="closeModal('bk-sepa')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div style="padding:16px 24px 24px">
+      <div data-step="form">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div><label class="bk-lbl">Empfänger</label><input id="sepa-name" class="bk-inp" oninput="bkSepaCheck()" placeholder="Name des Empfängers"></div>
+          <div><label class="bk-lbl">IBAN</label><input id="sepa-iban" class="bk-inp num" oninput="bkSepaCheck()" placeholder="DE00 0000 0000 0000 0000 00"></div>
+          <div>
+            <label class="bk-lbl">Betrag</label>
+            <div style="display:flex;align-items:center;gap:8px;padding:11px 13px;border-radius:11px;border:1.5px solid var(--field-border);background:var(--surface)">
+              <span class="disp" style="font-size:16px;color:var(--ink-3)">€</span>
+              <input id="sepa-amount" class="num" oninput="bkSepaCheck()" placeholder="0,00" style="flex:1;border:none;outline:none;font:600 16px var(--font-display);background:transparent;min-width:0"></div>
+          </div>
+          <div><label class="bk-lbl">Verwendungszweck</label><input id="sepa-ref" class="bk-inp" placeholder="z. B. Rechnung 2026-0044"></div>
+          <button id="sepa-next" onclick="bkSepaReview()" style="margin-top:4px;cursor:pointer;border:none;font:600 15px var(--font-ui);color:#fff;background:var(--ink);padding:13px;border-radius:12px;opacity:.45">Weiter</button>
+        </div>
+      </div>
+
+      <div data-step="review" hidden>
+        <div style="background:var(--surface-2);border:1px solid var(--line-2);border-radius:14px;padding:18px;margin-bottom:16px">
+          <div style="text-align:center;padding-bottom:14px;border-bottom:1px solid var(--line-3);margin-bottom:14px">
+            <div style="font-size:12px;color:var(--ink-3);margin-bottom:4px">Du sendest</div>
+            <div id="sepa-r-amount" class="disp" style="font-weight:700;font-size:32px">€0</div></div>
+          <div style="display:flex;flex-direction:column;gap:9px;font-size:13px">
+            <div class="bk-kv"><span>Empfänger</span><span id="sepa-r-name" style="font-weight:600;text-align:right">—</span></div>
+            <div class="bk-kv"><span>IBAN</span><span id="sepa-r-iban" class="num" style="font-weight:600;text-align:right;word-break:break-all">—</span></div>
+            <div class="bk-kv"><span>Zweck</span><span id="sepa-r-ref" style="text-align:right">—</span></div>
+            <div class="bk-kv"><span>Gebühr</span><span class="num">€0,00 · 1 Banktag</span></div>
+          </div>
+        </div>
+        <div class="bk-note" style="margin-bottom:16px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">{{ ic_shield }}</svg>Überweisung wird per Passkey signiert.</div>
+        <div style="display:flex;gap:10px">
+          <button class="btn btn--outline" onclick="bkSepaStep('form')">Zurück</button>
+          <button class="btn btn--accent" style="flex:1" onclick="bkSepaSend()">Signieren &amp; senden</button>
+        </div>
+      </div>
+
+      <div data-step="signing" hidden style="text-align:center;padding:36px 0">
+        <div class="bk-spin" style="width:44px;height:44px;margin:0 auto 16px"></div>
+        <div style="font-size:14.5px;font-weight:600">Warte auf Passkey…</div>
+      </div>
+
+      <div data-step="done" hidden style="text-align:center;padding:20px 0 8px">
+        <div style="width:56px;height:56px;border-radius:50%;background:var(--accent-tint);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">{{ ic_check }}</svg></div>
+        <div id="sepa-d-amount" class="disp" style="font-weight:700;font-size:20px;margin-bottom:6px">gesendet</div>
+        <p id="sepa-d-name" style="margin:0 0 22px;font-size:13.5px;color:var(--ink-2)"></p>
+        <button class="btn btn--primary" style="width:100%" onclick="closeModal('bk-sepa')">Fertig</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+{# ── MODAL · Onboarding (deterministisch, ohne Chat) ─────────────────── #}
+<div id="bk-onboard" class="scrim" hidden style="align-items:flex-start;padding:6vh 20px 20px;overflow-y:auto">
+  <div class="modal" style="width:440px;max-width:100%">
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:22px 24px 4px">
+      <div class="disp" style="font-weight:700;font-size:19px">Konto einrichten</div>
+      <button class="bk-x" onclick="closeModal('bk-onboard')"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div style="padding:16px 24px 24px">
+      <div data-step="form">
+        <div style="display:flex;flex-direction:column;gap:14px">
+          <div><label class="bk-lbl">Nutzername</label><input id="ob-user" class="bk-inp" placeholder="z. B. lennard" autocomplete="off"></div>
+          <div><label class="bk-lbl">E-Mail</label><input id="ob-email" class="bk-inp" placeholder="name@mail.de" autocomplete="off"></div>
+          <p class="bk-note" style="line-height:var(--lh-normal)"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0">{{ ic_shield }}</svg>Du legst gleich einen neuen Passkey an. Es können zwei Bestätigungen nötig sein.</p>
+          <button id="ob-go" onclick="bkOnboardStart()" style="cursor:pointer;border:none;font:600 15px var(--font-ui);color:#fff;background:var(--ink);padding:13px;border-radius:12px">Weiter</button>
+        </div>
+      </div>
+      <div data-step="sign" hidden>
+        <p id="ob-sign-text" style="font-size:14px;line-height:1.5;margin:0 0 8px">Signiere im Fenster – danach hier bestätigen.</p>
+        <p id="ob-hint" style="font-size:12.5px;color:var(--ink-3);margin:0 0 16px"></p>
+        <div style="display:flex;gap:8px">
+          <button id="ob-done" class="btn btn--primary btn--sm" style="flex:1" onclick="bkOnboardConfirm()">Ich habe bestätigt</button>
+          <button class="btn btn--outline btn--sm" onclick="bkOnboardReopen()">Erneut öffnen</button>
+        </div>
+        <p id="ob-warn" style="font-size:12px;color:var(--amber-deep);margin:10px 0 0"></p>
+      </div>
+      <div data-step="working" hidden style="text-align:center;padding:30px 0">
+        <div class="bk-spin" style="width:44px;height:44px;margin:0 auto 16px"></div>
+        <div id="ob-working" style="font-size:14.5px;font-weight:600">Richte dein Konto ein…</div>
+      </div>
+      <div data-step="done" hidden style="text-align:center;padding:20px 0 8px">
+        <div style="width:56px;height:56px;border-radius:50%;background:var(--accent-tint);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;margin:0 auto 16px">
+          <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">{{ ic_check }}</svg></div>
+        <div class="disp" style="font-weight:700;font-size:20px;margin-bottom:6px">Konto erstellt</div>
+        <p style="margin:0 0 22px;font-size:13.5px;color:var(--ink-2)">Als Nächstes: Identität verifizieren.</p>
+        <button class="btn btn--primary" style="width:100%" onclick="location.reload()">Weiter</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  const bkEuro = n => '€' + Number(n).toLocaleString('de-DE');
+  let bkDraft = 2000, bkFrozen = false;
+
+  function bkStep(modalId, step){
+    document.querySelectorAll('#' + modalId + ' [data-step]')
+      .forEach(el => el.hidden = el.dataset.step !== step);
+  }
+
+  // ── Gemeinsamer Passkey-Runner für Karten-Aktionen ──────────────────
+  //   startEndpoint liefert {approval_url, session_id, result_tool}; Popup
+  //   öffnen; im Signing-Schritt bestätigt der Nutzer selbst, dann poll _result.
+  async function bkStartAndSign(startEndpoint, body, modalId, onDone){
+    const post = () => fetch(startEndpoint, {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify(body||{})}).then(x=>x.json());
+    let r; try{ r = await post(); } catch(e){ return klarAlert('Netzwerkfehler'); }
+    // Erst-Aktion braucht eine Session (für die EOA): einmal entsperren, dann weiter.
+    if(r.needs_passkey){
+      window.open(r.approval_url, 'nuri-passkey', 'width=460,height=680');
+      bkStep(modalId, 'signing');
+      const scope0 = document.getElementById(modalId);
+      const warn0 = scope0.querySelector('.bk-sign-warn');
+      if(warn0) warn0.textContent = 'Einmal entsperren…';
+      scope0.querySelector('.bk-reopen').onclick = () => window.open(r.approval_url, 'nuri-passkey', 'width=460,height=680');
+      const cf = scope0.querySelector('.bk-confirm');
+      await new Promise(res => { cf.onclick = async () => {
+        cf.disabled = true; cf.textContent = 'Prüfe…';
+        const ok = await (await fetch('/banking/session/result', {method:'POST',
+          headers:{'Content-Type':'application/json'}, body:JSON.stringify({session_id:r.session_id})})).json();
+        cf.disabled = false; cf.textContent = 'Ich habe bestätigt';
+        if(ok.ok){ res(); } else if(warn0){ warn0.textContent = 'Noch nicht entsperrt – erneut prüfen.'; }
+      }; });
+      try{ r = await post(); } catch(e){ return klarAlert('Netzwerkfehler'); }
+    }
+    if(!r.ok){ klarAlert('Fehler: ' + (r.error || 'unbekannt')); return; }
+    window.open(r.approval_url, 'nuri-passkey', 'width=460,height=680');
+    bkStep(modalId, 'signing');
+    const scope = document.getElementById(modalId);
+    const warn = scope.querySelector('.bk-sign-warn');
+    scope.querySelector('.bk-reopen').onclick = () => window.open(r.approval_url, 'nuri-passkey', 'width=460,height=680');
+    const confirm = scope.querySelector('.bk-confirm');
+    confirm.onclick = async () => {
+      confirm.disabled = true; confirm.textContent = 'Prüfe…'; if(warn) warn.textContent = '';
+      let d; try{ d = await (await fetch('/banking/passkey/result', {method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({tool:r.result_tool, session_id:r.session_id})})).json(); }
+      catch(e){ d = {pending:true}; }
+      confirm.disabled = false; confirm.textContent = 'Ich habe bestätigt';
+      if(d.ok){ onDone(d.result || {}); }
+      else if(warn){ warn.textContent = 'Noch nicht bestätigt' + (d.status?' ('+d.status+')':'') + (d.error?' – '+d.error.slice(0,70):'') + '.'; }
+    };
+  }
+
+  // ── Umsätze neu abrufen. Ohne Session kommt erst ein Passkey-Link; nach dem
+  //    Tap holt das Backend das Token und wir rufen denselben Endpunkt erneut.
+  async function bkAwaitSession(sid){
+    for(let i = 0; i < 60; i++){                       // ~2 min, alle 2 s
+      await new Promise(r => setTimeout(r, 2000));
+      try{
+        const r = await (await fetch('/banking/session/result', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({session_id: sid})})).json();
+        if(r.ok) return true;
+      }catch(e){}
+    }
+    return false;
+  }
+
+  // KYC-Stand neu bei Wirex holen. Braucht eine Session -> ggf. erst Passkey.
+  async function bkRecheckKyc(btn){
+    const old = btn.textContent; btn.disabled = true; btn.textContent = 'Prüfe…';
+    const back = t => { btn.textContent = t; btn.disabled = false;
+      setTimeout(() => { btn.textContent = old; }, 4000); };
+    try{
+      let r = await (await fetch('/banking/kyc/recheck', {method:'POST'})).json();
+      if(r.needs_passkey){
+        btn.textContent = 'Warte auf Passkey…';
+        window.open(r.approval_url, 'nuri-passkey', 'width=460,height=680');
+        if(!await bkAwaitSession(r.session_id)) return back('Nicht bestätigt');
+        r = await (await fetch('/banking/kyc/recheck', {method:'POST'})).json();
+      }
+      if(r.kyc_done) return location.reload();
+      back(r.label ? 'Stand: ' + r.label : 'Noch offen');
+      if(r.kyc_url) setTimeout(() => location.reload(), 1200);
+    }catch(e){ back('Fehler'); }
+  }
+
+  async function bkReset(){
+    if(!await klarConfirm('Onboarding dieser Umgebung lokal verwerfen und neu starten?', {titel:'Neu starten', ja:'Verwerfen', gefahr:true})) return;
+    try{ await fetch('/banking/reset', {method:'POST'}); }catch(e){}
+    location.reload();
+  }
+
+  // Lokal abmelden: Konto + Session verwerfen -> zurück zum Anmelde-Screen.
+  // Löscht NUR den lokalen Zustand, dein Wirex-Konto bleibt bestehen.
+  async function bkLogout(){
+    if(!await klarConfirm('Danach kannst du dich mit einem anderen Passkey neu anmelden. Dein Wirex-Konto bleibt erhalten.', {titel:'Abmelden', ja:'Abmelden'})) return;
+    try{ await fetch('/banking/reset', {method:'POST'}); }catch(e){}
+    location.reload();
+  }
+
+  async function bkSetEnv(target){
+    try{
+      const r = await (await fetch('/banking/env', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify({env:target})})).json();
+      if(r.ok) location.reload();
+    }catch(e){}
+  }
+
+  // ── Onboarding: deterministische Zustandsmaschine, KEIN LLM ──────────
+  //   form -> (start) -> sign#1 (Passkey anlegen) -> poll onboard_result
+  //        -> ggf. sign#2 (Register) -> poll register_result -> done
+  let obState = {session_id:null, phase:'onboard', approval_url:null};
+
+  function bkObStep(s){ document.querySelectorAll('#bk-onboard [data-step]')
+    .forEach(el => el.hidden = el.dataset.step !== s); }
+
+  function bkOpenOnboard(){
+    ['ob-user','ob-email'].forEach(id => document.getElementById(id).value='');
+    document.getElementById('ob-warn').textContent='';
+    bkObStep('form'); openModal('bk-onboard');
+  }
+
+  async function bkOnboardStart(){
+    const username = document.getElementById('ob-user').value.trim();
+    const email = document.getElementById('ob-email').value.trim();
+    if(!username || !email){ document.getElementById('ob-warn').textContent='Bitte Nutzername und E-Mail angeben.'; bkObStep('form'); return; }
+    const btn = document.getElementById('ob-go'); btn.disabled=true; btn.textContent='Starte…';
+    try{
+      const r = await (await fetch('/banking/onboard/start', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify({username,email})})).json();
+      btn.disabled=false; btn.textContent='Weiter';
+      if(!r.ok){ document.getElementById('ob-warn').textContent='Fehler: '+(r.error||'unbekannt'); return; }
+      obState = {session_id:r.session_id, phase:'onboard', approval_url:r.approval_url};
+      bkObSign('Neuen Passkey anlegen', 'Erstelle im Fenster deinen Passkey, dann hier bestätigen.');
+    }catch(e){ btn.disabled=false; btn.textContent='Weiter'; document.getElementById('ob-warn').textContent='Netzwerkfehler.'; }
+  }
+
+  function bkObSign(title, hint){
+    document.getElementById('ob-sign-text').textContent = title;
+    document.getElementById('ob-hint').textContent = hint || '';
+    document.getElementById('ob-warn').textContent = '';
+    bkObStep('sign');
+    window.open(obState.approval_url, 'nuri-passkey', 'width=460,height=680');
+  }
+  function bkOnboardReopen(){ if(obState.approval_url) window.open(obState.approval_url, 'nuri-passkey', 'width=460,height=680'); }
+
+  async function bkOnboardConfirm(){
+    const btn = document.getElementById('ob-done'); btn.disabled=true; btn.textContent='Prüfe…';
+    let r; try{
+      r = await (await fetch('/banking/onboard/poll', {method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({session_id:obState.session_id, phase:obState.phase})})).json();
+    }catch(e){ r = {state:'pending'}; }
+    btn.disabled=false; btn.textContent='Ich habe bestätigt';
+
+    if(r.state === 'done'){ bkObStep('done'); return; }
+    if(r.state === 'register'){
+      // Zweite Signatur: On-Chain-Register. Anderer Link, anderes session_id.
+      obState = {session_id:r.register_session_id, phase:'register', approval_url:r.approval_url};
+      bkObSign('Noch eine Bestätigung', 'Konto wird on-chain registriert – bitte erneut signieren.');
+      return;
+    }
+    // pending
+    document.getElementById('ob-warn').textContent =
+      'Noch nicht bestätigt'+(r.status?' (Status: '+r.status+')':'')+(r.error?' – '+r.error.slice(0,80):'')+'. Signiere im Fenster und prüfe erneut.';
+  }
+
+  // Guthaben/IBAN/Karte sind Live-Werte (driften) und werden beim Laden
+  // nachgezogen, sobald eine Session da ist. Kein Passkey wird dafür erzwungen.
+  async function bkLoadLive(){
+    let r; try{ r = await (await fetch('/banking/live', {method:'POST'})).json(); }catch(e){ return; }
+    if(!r.ok) return;   // needs_session -> Nutzer entsperrt selbst per Refetch
+    const set = (id, val) => { const el = document.getElementById(id); if(el && val!=null) el.textContent = val; };
+    if(r.balance != null){
+      const eur = '€' + Number(r.balance).toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2});
+      set('bk-balance', eur);
+    }
+    // IBAN: echte anzeigen, sonst ehrlich den Provisioning-Stand.
+    const ibanEl = document.getElementById('bk-iban');
+    if(ibanEl){
+      if(r.iban){ ibanEl.textContent = r.iban; ibanEl.style.color = ''; }
+      else if(r.iban_status && r.iban_status !== 'none'){
+        ibanEl.textContent = 'wird bereitgestellt…'; ibanEl.style.color = 'var(--ink-3)';
+      }
+    }
+    if(r.last4) set('bk-last4', r.last4);
+    // Tageslimit: -1 = kein Limit gesetzt.
+    if(r.limit){
+      const cur = r.limit.currency === 'EUR' ? '€' : (r.limit.currency + ' ');
+      const fmt = n => cur + Number(n).toLocaleString('de-DE', {minimumFractionDigits:2, maximumFractionDigits:2});
+      const unlimited = r.limit.daily == null || r.limit.daily < 0;
+      const used = r.limit.daily_usage || 0;
+      set('bk-limit-lbl', unlimited ? 'kein Limit' : fmt(r.limit.daily));
+      set('bk-limit-used', fmt(used) + ' genutzt');
+      const barEl = document.getElementById('bk-limit-bar');
+      if(unlimited){
+        set('bk-limit-left', 'unbegrenzt');
+        if(barEl) barEl.style.width = '0%';
+      } else {
+        set('bk-limit-left', fmt(Math.max(0, r.limit.daily - used)) + ' übrig');
+        if(barEl) barEl.style.width = Math.min(100, Math.round(used / r.limit.daily * 100)) + '%';
+      }
+    }
+  }
+  {% if activated %}document.addEventListener('DOMContentLoaded', bkLoadLive);
+  document.addEventListener('DOMContentLoaded', () => setTimeout(bkLoadTx, 400));{% endif %}
+
+  // Stiller IBAN-Poller (wie nuri-expo WirexAccountService): solange keine IBAN
+  // da ist, alle 5s wirex_status abfragen und JEDEN Status inkl. capabilities in
+  // die Konsole loggen. Stoppt, sobald die IBAN kommt (oder nach 40 Versuchen).
+  async function bkPollStatus(){
+    let attempts = 0;
+    const tick = async () => {
+      attempts++;
+      let r; try{ r = await (await fetch('/banking/status', {method:'POST'})).json(); }
+      catch(e){ if(attempts < 40) setTimeout(tick, 5000); return; }
+      if(r.needs_session){ console.log('[Banking] keine Session – erst entsperren'); return; }
+      console.log(`[Banking] status #${attempts}`, {
+        iban: r.iban || '(leer)', iban_status: r.iban_status,
+        capabilities: r.capabilities, stage: r.stage,
+        verification: r.verification_status, real_failures: r.real_failures,
+        bank_accounts: r.bank_accounts, cards: r.cards,
+      });
+      if(r.iban){
+        console.log('%c[Banking] IBAN ausgestellt: ' + r.iban, 'color:#1FA971;font-weight:bold');
+        const el = document.getElementById('bk-iban');
+        if(el){ el.textContent = r.iban; el.style.color = ''; }
+        return;
+      }
+      if(attempts < 40) setTimeout(tick, 5000);
+      else console.log('[Banking] Poller gestoppt nach 40 Versuchen – IBAN noch nicht da.');
+    };
+    tick();
+  }
+  {% if activated %}document.addEventListener('DOMContentLoaded', () => setTimeout(bkPollStatus, 1500));{% endif %}
+
+  // Bestandsnutzer-Anmeldung: nur Passkey, kein Onboarding. Der Signatur-Passkey
+  // enthüllt das Konto. Der Nutzer muss ggf. den RICHTIGEN nuri.com-Passkey wählen.
+  async function bkSignin(){
+    const st = document.getElementById('bk-signin-status');
+    st.textContent = 'Öffne Anmeldung…';
+    let r; try{ r = await (await fetch('/banking/signin', {method:'POST'})).json(); }
+    catch(e){ st.textContent = 'Netzwerkfehler.'; return; }
+    if(!r.ok){ st.textContent = 'Fehler: ' + (r.error || 'unbekannt'); return; }
+    window.open(r.approval_url, 'nuri-passkey', 'width=460,height=680');
+    st.innerHTML = 'Signiere im Fenster mit deinem Passkey, dann '
+      + '<a href="#" id="bk-signin-check" style="color:var(--accent-deep);font-weight:600">hier prüfen</a>.';
+    document.getElementById('bk-signin-check').onclick = async (e) => {
+      e.preventDefault();
+      st.textContent = 'Prüfe…';
+      let d; try{ d = await (await fetch('/banking/signin/result', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify({session_id:r.session_id})})).json(); }
+      catch(err){ d = {pending:true}; }
+      if(d.ok){
+        st.textContent = 'Angemeldet: ' + (d.wallet||'').slice(0,10) + '… – lade dein Konto…';
+        setTimeout(() => location.reload(), 1000);
+      } else {
+        st.innerHTML = 'Noch nicht bestätigt' + (d.error?' ('+d.error.slice(0,60)+')':'')
+          + '. <a href="#" onclick="bkSignin();return false" style="color:var(--accent-deep)">erneut versuchen</a>';
+      }
+    };
+  }
+
+  // KYC fortsetzen (nuri-expo: onboard erneut -> frischer Sumsub-Link). Der
+  // Passkey liegt evtl. auf dem iPhone, deshalb Link zum Öffnen dort.
+  let bkKycSession = null;
+  async function bkKycContinue(){
+    const box = document.getElementById('bk-kyc-flow');
+    const msg = document.getElementById('bk-kyc-msg');
+    box.hidden = false; msg.textContent = 'Starte Verifizierung…';
+    document.getElementById('bk-kyc-link-box').hidden = true;
+    document.getElementById('bk-kyc-confirm').hidden = true;
+    let r; try{ r = await (await fetch('/banking/kyc/continue', {method:'POST'})).json(); }
+    catch(e){ msg.textContent = 'Netzwerkfehler.'; return; }
+    if(!r.ok){ msg.textContent = 'Fehler: ' + (r.error || 'unbekannt'); return; }
+    bkKycSession = r.session_id;
+    document.getElementById('bk-kyc-url').value = r.approval_url;
+    document.getElementById('bk-kyc-link-box').hidden = false;
+    document.getElementById('bk-kyc-confirm').hidden = false;
+    msg.textContent = 'Öffne den Link auf dem Gerät mit deinem Nuri-Passkey (z. B. iPhone) und signiere. Danach hier bestätigen.';
+    window.__bkKycUrl = r.approval_url;
+  }
+  function bkKycCopy(btn){
+    navigator.clipboard?.writeText(document.getElementById('bk-kyc-url').value);
+    const old = btn.textContent; btn.textContent = 'Kopiert'; setTimeout(()=>btn.textContent=old, 1200);
+  }
+  function bkKycOpenHere(){ if(window.__bkKycUrl) window.open(window.__bkKycUrl, 'nuri-passkey', 'width=460,height=680'); }
+  async function bkKycCheck(btn){
+    const msg = document.getElementById('bk-kyc-msg');
+    btn.disabled = true; btn.textContent = 'Prüfe…';
+    let d; try{ d = await (await fetch('/banking/onboard/poll', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({session_id:bkKycSession})})).json(); }
+    catch(e){ d = {state:'pending'}; }
+    btn.disabled = false; btn.textContent = 'Ich habe signiert';
+    if(d.state === 'done' && d.kyc_url){
+      msg.textContent = 'Verifizierung geöffnet…';
+      window.open(d.kyc_url, '_blank', 'noopener');
+    } else if(d.state === 'register'){
+      // Zweite Signatur nötig
+      document.getElementById('bk-kyc-url').value = d.approval_url;
+      bkKycSession = d.register_session_id; window.__bkKycUrl = d.approval_url;
+      msg.textContent = 'Noch eine Signatur nötig (On-Chain-Register) – Link erneut öffnen und signieren.';
+    } else if(d.state === 'done'){
+      // approved/registered, aber KEIN kyc_url (z. B. abgelehnt) – ehrlich sagen.
+      msg.textContent = 'Kein Verifizierungs-Link verfügbar (Status: ' + (d.status||'?') + '). '
+        + 'Bei abgelehnter/duplizierter KYC vergibt Wirex keinen neuen Link – das klärt Nuri-Support.';
+    } else {
+      msg.textContent = 'Noch nicht bestätigt' + (d.status?' ('+d.status+')':'') + '. Signiere im Fenster und prüfe erneut.';
+    }
+  }
+
+  // ── Umsätze anzeigen + gezielt in die Zahlungen übernehmen ──────────
+  const bkEur2 = n => (n<0?'-':'') + '€' + Math.abs(Number(n)).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  function bkEsc(s){ const d=document.createElement('div'); d.textContent=s==null?'':String(s); return d.innerHTML; }
+
+  async function bkLoadTx(force){
+    const list = document.getElementById('bk-tx-list');
+    if(force) list.innerHTML = '<div style="padding:26px 20px;text-align:center;color:var(--ink-3);font-size:13px">Lade…</div>';
+    let r; try{ r = await (await fetch('/banking/transactions', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({force: !!force})})).json(); }
+    catch(e){ list.innerHTML = '<div style="padding:20px;color:var(--coral)">Netzwerkfehler.</div>'; return; }
+    if(r.needs_passkey){
+      list.innerHTML = '<div style="padding:22px 20px;text-align:center;font-size:13px;color:var(--ink-2)">Zum Laden der Umsätze einmal entsperren.<br><button class="btn btn--primary btn--sm" style="margin-top:10px" onclick="bkTxUnlock(\'' + r.approval_url + '\',\'' + r.session_id + '\')">Mit Passkey entsperren</button></div>';
+      return;
+    }
+    if(!r.ok){ list.innerHTML = '<div style="padding:20px;color:var(--coral);font-size:13px">Fehler: ' + bkEsc(r.error||'unbekannt') + '</div>'; return; }
+    bkRenderTx(r.rows || [], r.stale);
+  }
+
+  async function bkTxUnlock(url, sid){
+    window.open(url, 'nuri-passkey', 'width=460,height=680');
+    const list = document.getElementById('bk-tx-list');
+    list.innerHTML = '<div style="padding:22px 20px;text-align:center;font-size:13px;color:var(--ink-2)">Signiere im Fenster…<br><button class="btn btn--primary btn--sm" style="margin-top:10px" id="bk-tx-unlock-check">Ich habe signiert</button></div>';
+    document.getElementById('bk-tx-unlock-check').onclick = async () => {
+      const ok = await (await fetch('/banking/session/result', {method:'POST',
+        headers:{'Content-Type':'application/json'}, body:JSON.stringify({session_id:sid})})).json();
+      if(ok.ok) bkLoadTx(true); else list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--amber-deep);font-size:13px">Noch nicht bestätigt. <a href="#" onclick="bkLoadTx(true);return false">erneut</a></div>';
+    };
+  }
+
+  function bkRenderTx(rows, stale){
+    const list = document.getElementById('bk-tx-list');
+    const sub = document.getElementById('bk-tx-sub');
+    if(!rows.length){ list.innerHTML = '<div style="padding:26px 20px;text-align:center;color:var(--ink-3);font-size:13px">Keine Umsätze.</div>'; return; }
+    const openN = rows.filter(r=>!r.imported).length;
+    sub.textContent = rows.length + ' Umsätze · ' + openN + ' offen' + (stale ? ' · lokaler Stand, „Aktualisieren" für live' : '');
+    let html = '';
+    for(const r of rows){
+      const neg = r.amount < 0;
+      html += '<label style="display:flex;align-items:center;gap:12px;padding:12px 20px;border-top:1px solid var(--line-3);cursor:'+(r.imported?'default':'pointer')+';'+(r.imported?'opacity:.55':'')+'">'
+        + '<input type="checkbox" class="bk-tx-cb" value="'+bkEsc(r.ref)+'" '+(r.imported?'disabled':'')+' onchange="bkTxSel()" style="width:16px;height:16px;accent-color:var(--ink);flex-shrink:0">'
+        + '<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+bkEsc(r.description)+'</div>'
+        + '<div style="font-size:11.5px;color:var(--ink-3)">'+bkEsc(r.date)+' · '+bkEsc(r.tx_type)+(r.imported?' · <span style="color:var(--accent-deep)">übernommen</span>':'')+'</div></div>'
+        + '<div class="num" style="font-size:14px;font-weight:600;color:'+(neg?'var(--coral)':'var(--accent-deep)')+'">'+bkEur2(r.amount)+'</div></label>';
+    }
+    list.innerHTML = html;
+    bkTxSel();
+  }
+
+  function bkTxSel(){
+    const n = document.querySelectorAll('.bk-tx-cb:checked').length;
+    const btn = document.getElementById('bk-tx-import');
+    btn.disabled = n === 0;
+    btn.textContent = n ? ('Zu Zahlungen übernehmen ('+n+')') : 'Zu Zahlungen übernehmen';
+  }
+
+  async function bkImportTx(){
+    const refs = Array.from(document.querySelectorAll('.bk-tx-cb:checked')).map(c=>c.value);
+    if(!refs.length) return;
+    const btn = document.getElementById('bk-tx-import');
+    btn.disabled = true; btn.textContent = 'Übernehme…';
+    let r; try{ r = await (await fetch('/banking/transactions/import', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({refs})})).json(); }
+    catch(e){ r = {ok:false, error:'Netzwerkfehler'}; }
+    if(r.ok){
+      document.getElementById('bk-tx-sub').textContent = r.imported + ' übernommen — jetzt in deinen Zahlungen.';
+      bkLoadTx(true);
+    } else {
+      btn.disabled = false; bkTxSel();
+      klarAlert('Fehler: ' + (r.error||'unbekannt'));
+    }
+  }
+
+  function bkHide3ds(){ document.getElementById('bk-3ds').hidden = true; }
+
+  function bkSetFrozenUI(frozen){
+    bkFrozen = frozen;
+    document.getElementById('bk-frozen').hidden = !frozen;
+    document.getElementById('bk-card').style.background = frozen
+      ? 'linear-gradient(135deg,#3B6EF5,#274FB8)'
+      : 'linear-gradient(135deg,#2A2C36,#16171D 60%,#0E0F14)';
+    document.getElementById('bk-status').textContent = frozen ? 'Eingefroren' : 'Aktiv';
+    document.getElementById('bk-freeze-lbl').textContent = frozen ? 'Auftauen' : 'Einfrieren';
+    document.getElementById('bk-freeze-btn').classList.toggle('is-on', frozen);
+  }
+  // Einfrieren/Auftauen: echte Karten-Aktion. Popup direkt (kein Modal drumrum),
+  // deshalb eine kurze Rückfrage über klarConfirm().
+  async function bkToggleFreeze(){
+    const action = bkFrozen ? 'unfreeze' : 'freeze';
+    let r; try{ r = await (await fetch('/banking/card/freeze', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({action})})).json(); }
+    catch(e){ return klarAlert('Netzwerkfehler'); }
+    if(!r.ok) return klarAlert('Fehler: ' + (r.error || 'unbekannt'));
+    window.open(r.approval_url, 'nuri-passkey', 'width=460,height=680');
+    const lbl = document.getElementById('bk-freeze-lbl'); const old = lbl.textContent;
+    lbl.textContent = 'Signiere…';
+    // kurz warten, dann Ergebnis holen (der Nutzer signiert im Popup)
+    const poll = async () => {
+      const d = await (await fetch('/banking/passkey/result', {method:'POST',
+        headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({tool:r.result_tool, session_id:r.session_id})})).json();
+      if(d.ok){ bkSetFrozenUI(action === 'freeze'); lbl.textContent = old; }
+      else { lbl.textContent = old; if(await klarConfirm('Im Fenster signiert?', {titel:'Signatur prüfen', ja:'Prüfen'})) poll(); }
+    };
+    setTimeout(poll, 3500);
+  }
+
+  function bkOpenReveal(){ bkStep('bk-reveal', 'idle'); openModal('bk-reveal'); }
+  function bkOpenLimit(){ bkStep('bk-limit', 'form'); openModal('bk-limit'); }
+
+  function bkLimitDraft(v){ bkDraft = Number(v);
+    document.getElementById('bk-limit-draft').textContent = bkEuro(bkDraft); }
+
+  function bkCopyBtn(btn, value){
+    if(!btn) return;
+    btn.onclick = () => {
+      navigator.clipboard?.writeText(value);
+      const old = btn.innerHTML;
+      btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent-deep)" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+      setTimeout(() => { btn.innerHTML = old; }, 1200);
+    };
+  }
+
+  // Kartendaten enthüllen – echte Passkey-Reveal.
+  function bkReveal(kind, modalId){
+    bkStartAndSign('/banking/card/reveal', {kind}, modalId, (res) => {
+      const raw = (res.pan || '').replace(/\s/g, '');
+      const grouped = raw.replace(/(.{4})/g, '$1 ').trim() || '—';
+      document.getElementById('bk-rev-pan').textContent = grouped;
+      document.getElementById('bk-rev-exp').textContent = res.expiry || '—';
+      document.getElementById('bk-rev-cvv').textContent = res.cvv || '—';
+      bkCopyBtn(document.getElementById('bk-rev-pan-copy'), raw);
+      bkCopyBtn(document.getElementById('bk-rev-cvv-copy'), res.cvv || '');
+      bkStep(modalId, 'done');
+    });
+  }
+
+  // Tageslimit setzen – echte set-limit Aktion.
+  function bkSaveLimit(){
+    bkStartAndSign('/banking/card/limit', {limit: bkDraft}, 'bk-limit', () => {
+      bkStep('bk-limit', 'done');
+    });
+  }
+
+  function bkCopyIban(btn){
+    const iban = document.getElementById('bk-iban').textContent.trim();
+    navigator.clipboard?.writeText(iban);
+    const old = btn.innerHTML;
+    btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+    setTimeout(() => { btn.innerHTML = old; }, 1200);
+  }
+
+  // ── SEPA ──────────────────────────────────────────────────────────
+  const bkSepaFields = () => ({
+    name: document.getElementById('sepa-name').value.trim(),
+    iban: document.getElementById('sepa-iban').value.trim(),
+    amount: document.getElementById('sepa-amount').value.trim(),
+    ref: document.getElementById('sepa-ref').value.trim(),
+  });
+  function bkSepaStep(step){ bkStep('bk-sepa', step); }
+  function bkOpenSepa(){
+    ['sepa-name','sepa-iban','sepa-amount','sepa-ref'].forEach(id => document.getElementById(id).value = '');
+    bkSepaCheck(); bkSepaStep('form'); openModal('bk-sepa');
+  }
+  function bkSepaCheck(){
+    const f = bkSepaFields();
+    document.getElementById('sepa-next').style.opacity = (f.name && f.iban && f.amount) ? '1' : '.45';
+  }
+  function bkSepaReview(){
+    const f = bkSepaFields();
+    if(!(f.name && f.iban && f.amount)) return;
+    document.getElementById('sepa-r-amount').textContent = bkEuro(String(f.amount).replace(',', '.'));
+    document.getElementById('sepa-r-name').textContent = f.name;
+    document.getElementById('sepa-r-iban').textContent = f.iban;
+    document.getElementById('sepa-r-ref').textContent = f.ref || '—';
+    bkSepaStep('review');
+  }
+  function bkSepaSend(){
+    const f = bkSepaFields();
+    bkSepaStep('signing');
+    setTimeout(() => {
+      document.getElementById('sepa-d-amount').textContent =
+        bkEuro(String(f.amount).replace(',', '.')) + ' gesendet';
+      document.getElementById('sepa-d-name').textContent = 'An ' + f.name + ' · trifft in 1 Banktag ein.';
+      bkSepaStep('done');
+    }, 1200);
+  }
+</script>
+{% endblock %}

@@ -1,0 +1,4 @@
+number,issue_date,service_from,service_to,paid_date,kind,customer_name,customer_address,customer_vat_id,description,quantity,unit,unit_price,vat_rate
+2026-01-0001,2026-01-15,2026-01-02,2026-01-14,2026-01-29,domestic,Muster Handels GmbH,Musterstraße 1; 10115 Berlin,,Beratung und Umsetzung,1,,1000,19
+2026-02-0001,2026-02-20,2026-02-01,2026-02-19,,eu,Example Software OÜ,Näidise tee 5; 10111 Tallinn; Estonia,EE100000000,Beratung und Umsetzung,1,,1000,0
+2026-03-0001,2026-03-05,2026-03-05,,2026-04-01,third,Acme UK Ltd,221B Baker Street; London; United Kingdom,GB123456789,Consulting services,2,days,500,0

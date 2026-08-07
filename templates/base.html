@@ -1,0 +1,331 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Buchhaltung{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header class="topbar">
+    <span class="brand">Buchhaltung</span>
+    <nav>
+      <a href="{{ url_for('dashboard') }}" class="{{ 'active' if active=='dashboard' }}">Übersicht</a>
+      <a href="{{ url_for('invoices') }}" class="{{ 'active' if active=='invoices' }}">Rechnungen</a>
+      <a href="{{ url_for('zahlungen') }}" class="{{ 'active' if active=='zahlungen' }}">Zahlungen{% if nav_open_tx %} <span class="badge">{{ nav_open_tx }}</span>{% endif %}</a>
+      <a href="{{ url_for('customers') }}" class="{{ 'active' if active=='customers' }}">Kunden</a>
+      <a href="{{ url_for('reports') }}" class="{{ 'active' if active=='reports' }}">Berichte</a>
+      <a href="{{ url_for('import_csv') }}" class="{{ 'active' if active=='import' }}">Import</a>
+      <a href="{{ url_for('files') }}" class="{{ 'active' if active=='files' }}">Dokumente</a>
+      {% if terminal_moeglich %}<a href="{{ url_for('terminal') }}" class="{{ 'active' if active=='terminal' }}">Terminal</a>{% endif %}
+      <a href="{{ url_for('settings') }}" class="{{ 'active' if active=='settings' }}">Einstellungen</a>
+    </nav>
+  </header>
+  <main>
+    {% with messages = get_flashed_messages(with_categories=true) %}
+      {% for cat, msg in messages %}
+        <div class="flash {{ cat }}">{{ msg }}</div>
+      {% endfor %}
+    {% endwith %}
+    {% block body %}{% endblock %}
+  </main>
+
+  <script>
+  // Mini-Markdown -> HTML (sicher: escapt zuerst). Für Chat-Bubbles.
+  window.bbMd = function (src) {
+    const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    const inl = t => esc(t)
+      .replace(/`([^`]+)`/g, '<code class="cw-ic">$1</code>')
+      .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+      .replace(/(^|[^*])\*([^*\n]+)\*/g, '$1<em>$2</em>');
+    const lines = String(src || '').split('\n');
+    let out = '', i = 0, inList = false;
+    const close = () => { if (inList) { out += '</ul>'; inList = false; } };
+    while (i < lines.length) {
+      const line = lines[i];
+      if (line.trim().startsWith('```')) {
+        close(); i++; const code = [];
+        while (i < lines.length && !lines[i].trim().startsWith('```')) { code.push(lines[i]); i++; }
+        i++; out += '<pre class="cw-code">' + esc(code.join('\n')) + '</pre>'; continue;
+      }
+      const li = line.match(/^\s*[-*]\s+(.*)$/);
+      if (li) { if (!inList) { out += '<ul class="cw-ul">'; inList = true; } out += '<li>' + inl(li[1]) + '</li>'; i++; continue; }
+      close();
+      const h = line.match(/^#{1,6}\s+(.*)$/);
+      if (h) { out += '<div class="cw-h">' + inl(h[1]) + '</div>'; i++; continue; }
+      if (line.trim() === '') { out += '<div class="cw-sp"></div>'; i++; continue; }
+      out += '<div>' + inl(line) + '</div>'; i++;
+    }
+    close();
+    return out;
+  };
+  </script>
+
+  {# ── Schwebendes Chat-Widget (auf jeder Seite) ─────────────────────── #}
+  <div id="chat-widget">
+    <button id="chat-toggle" type="button" aria-label="Chat öffnen">
+      <span class="chat-ico-open">💬</span><span class="chat-ico-close">✕</span>
+    </button>
+    <div id="chat-panel" hidden aria-hidden="true">
+      <div class="cw-head">
+        <div>
+          <strong>Chat</strong>
+          <span id="cw-dev" class="chip open" hidden>Entwickler-Modus</span>
+        </div>
+        <div class="cw-head-actions">
+          <button id="cw-reset" type="button" class="btn ghost small">Neu</button>
+          <button id="cw-close" type="button" class="btn ghost small" aria-label="Schließen">✕</button>
+        </div>
+      </div>
+      <div id="cw-warn" class="cw-warn" hidden>
+        Kein LLM-Zugang hinterlegt. Bitte zuerst unter
+        <a href="{{ url_for('settings') }}">Einstellungen</a> Base-URL, Modell und API-Key eintragen.
+      </div>
+      <div id="cw-log" class="cw-log"></div>
+      <form id="cw-form" class="cw-form">
+        <input type="file" id="cw-file" accept="application/pdf,.pdf" hidden>
+        <button type="button" id="cw-attach" class="btn ghost" title="PDF-Beleg/Rechnung hochladen" style="padding:0 10px">📎</button>
+        <input id="cw-input" name="message" placeholder="Nachricht…" autocomplete="off">
+        <button class="btn" type="submit">Senden</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const toggle = document.getElementById('chat-toggle');
+    const panel  = document.getElementById('chat-panel');
+    const log    = document.getElementById('cw-log');
+    const form   = document.getElementById('cw-form');
+    const input  = document.getElementById('cw-input');
+    const warn   = document.getElementById('cw-warn');
+    const devTag = document.getElementById('cw-dev');
+    const KEY = 'bb-chat-open';
+    let loaded = false, busy = false;
+
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, c =>
+        ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    }
+
+    function render(messages) {
+      log.innerHTML = '';
+      if (!messages || !messages.length) {
+        log.innerHTML = '<p class="cw-empty">Noch keine Nachrichten. Stell eine Frage oder gib einen Auftrag.</p>';
+      } else {
+        for (const m of messages) {
+          const div = document.createElement('div');
+          div.className = 'cw-msg cw-' + m.role;
+          div.innerHTML = '<span>' + (m.role === 'assistant' ? window.bbMd(m.text) : esc(m.text)) + '</span>';
+          log.appendChild(div);
+        }
+      }
+      log.scrollTop = log.scrollHeight;
+    }
+
+    async function loadHistory() {
+      if (loaded) return;
+      loaded = true;
+      try {
+        const r = await fetch('{{ url_for("chat_api") }}');
+        const d = await r.json();
+        warn.hidden = !!d.configured;
+        devTag.hidden = !d.dev;
+        render(d.messages);
+      } catch (e) { loaded = false; }
+    }
+
+    function setOpen(open) {
+      panel.hidden = !open;
+      panel.setAttribute('aria-hidden', String(!open));
+      document.getElementById('chat-widget').classList.toggle('open', open);
+      toggle.setAttribute('aria-label', open ? 'Chat schließen' : 'Chat öffnen');
+      try { localStorage.setItem(KEY, open ? '1' : '0'); } catch (e) {}
+      if (open) { loadHistory(); setTimeout(() => input.focus(), 50); }
+    }
+
+    toggle.addEventListener('click', () => setOpen(panel.hidden));
+    document.getElementById('cw-close').addEventListener('click', () => setOpen(false));
+
+    document.getElementById('cw-reset').addEventListener('click', async () => {
+      await fetch('{{ url_for("chat_api_reset") }}', { method: 'POST' });
+      render([]);
+      input.focus();
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text || busy) return;
+      busy = true;
+      input.value = '';
+      // Nutzer-Nachricht sofort optimistisch anzeigen
+      const u = document.createElement('div');
+      u.className = 'cw-msg cw-user';
+      u.innerHTML = '<span>' + esc(text) + '</span>';
+      const empty = log.querySelector('.cw-empty'); if (empty) empty.remove();
+      log.appendChild(u);
+      const wait = document.createElement('div');
+      wait.className = 'cw-msg cw-assistant cw-wait';
+      wait.innerHTML = '<span>…</span>';
+      log.appendChild(wait);
+      log.scrollTop = log.scrollHeight;
+      try {
+        const r = await fetch('{{ url_for("chat_api_send") }}', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text }),
+        });
+        const d = await r.json();
+        render(d.messages);
+      } catch (err) {
+        wait.querySelector('span').textContent = 'Fehler: ' + err;
+      } finally {
+        busy = false;
+        input.focus();
+      }
+    });
+
+    // PDF-Beleg hochladen → vom LLM einordnen lassen
+    const fileInput = document.getElementById('cw-file');
+    document.getElementById('cw-attach').addEventListener('click', () => {
+      if (!busy) fileInput.click();
+    });
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file || busy) return;
+      busy = true;
+      const empty = log.querySelector('.cw-empty'); if (empty) empty.remove();
+      const u = document.createElement('div');
+      u.className = 'cw-msg cw-user';
+      u.innerHTML = '<span>📎 ' + esc(file.name) + ' hochgeladen</span>';
+      log.appendChild(u);
+      const wait = document.createElement('div');
+      wait.className = 'cw-msg cw-assistant cw-wait';
+      wait.innerHTML = '<span>… analysiere Beleg …</span>';
+      log.appendChild(wait);
+      log.scrollTop = log.scrollHeight;
+      try {
+        const fd = new FormData();
+        fd.append('file', file);
+        const r = await fetch('{{ url_for("chat_api_upload") }}', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (d.error && (!d.messages || !d.messages.length)) {
+          wait.querySelector('span').textContent = d.error;
+        } else {
+          render(d.messages);
+        }
+      } catch (err) {
+        wait.querySelector('span').textContent = 'Fehler: ' + err;
+      } finally {
+        fileInput.value = '';
+        busy = false;
+        input.focus();
+      }
+    });
+
+    // Offen-Zustand über Seitenwechsel hinweg merken
+    let open = false;
+    try { open = localStorage.getItem(KEY) === '1'; } catch (e) {}
+    if (open) setOpen(true);
+  })();
+  </script>
+
+  {# ── Schwebendes Claude-Widget (Chat-UI, Backend = Claude Code) ─────── #}
+  <div id="term-widget">
+    <button id="term-toggle" type="button" aria-label="Claude öffnen">✦</button>
+    <div id="term-panel" hidden aria-hidden="true">
+      <div class="cw-head">
+        <div><strong>Claude</strong> <span style="color:var(--muted);font-weight:400;font-size:12px">ändert die App</span></div>
+        <div class="cw-head-actions">
+          <button id="aw-reset" type="button" class="btn ghost small">Neu</button>
+          <button id="aw-close" type="button" class="btn ghost small" aria-label="Schließen">✕</button>
+        </div>
+      </div>
+      <div id="aw-warn" class="cw-warn" hidden>Claude Code (<code>claude</code>) nicht gefunden. Bitte installieren.</div>
+      <div id="aw-log" class="cw-log"></div>
+      <form id="aw-form" class="cw-form">
+        <input id="aw-input" name="message" placeholder="Claude beauftragen…" autocomplete="off">
+        <button class="btn" type="submit">Senden</button>
+      </form>
+    </div>
+  </div>
+
+  <script>
+  (function () {
+    const toggle = document.getElementById('term-toggle');
+    const panel  = document.getElementById('term-panel');
+    const log    = document.getElementById('aw-log');
+    const form   = document.getElementById('aw-form');
+    const input  = document.getElementById('aw-input');
+    const warn   = document.getElementById('aw-warn');
+    const TKEY = 'bb-term-open';
+    let loaded = false, busy = false;
+
+    function esc(s) {
+      return String(s).replace(/[&<>"]/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;' }[c]));
+    }
+    function render(messages) {
+      log.innerHTML = '';
+      if (!messages || !messages.length) {
+        log.innerHTML = '<p class="cw-empty">Beauftrage Claude, z. B. „mach den Header dunkelblau" oder „füge auf der Übersicht die offenen Rechnungen hinzu".</p>';
+      } else {
+        for (const m of messages) {
+          const div = document.createElement('div');
+          div.className = 'cw-msg cw-' + m.role;
+          div.innerHTML = '<span>' + (m.role === 'assistant' ? window.bbMd(m.text) : esc(m.text)) + '</span>';
+          log.appendChild(div);
+        }
+      }
+      log.scrollTop = log.scrollHeight;
+    }
+    async function loadHistory() {
+      if (loaded) return; loaded = true;
+      try {
+        const d = await (await fetch('{{ url_for("agent_api") }}')).json();
+        warn.hidden = !!d.available;
+        render(d.messages);
+      } catch (e) { loaded = false; }
+    }
+    function setOpen(open) {
+      panel.hidden = !open;
+      document.getElementById('term-widget').classList.toggle('open', open);
+      try { localStorage.setItem(TKEY, open ? '1' : '0'); } catch (e) {}
+      if (open) { loadHistory(); setTimeout(() => input.focus(), 50); }
+    }
+    toggle.addEventListener('click', () => setOpen(panel.hidden));
+    document.getElementById('aw-close').addEventListener('click', () => setOpen(false));
+    document.getElementById('aw-reset').addEventListener('click', async () => {
+      await fetch('{{ url_for("agent_reset") }}', { method: 'POST' });
+      render([]); input.focus();
+    });
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const text = input.value.trim();
+      if (!text || busy) return;
+      busy = true; input.value = '';
+      const empty = log.querySelector('.cw-empty'); if (empty) empty.remove();
+      const u = document.createElement('div'); u.className = 'cw-msg cw-user';
+      u.innerHTML = '<span>' + esc(text) + '</span>'; log.appendChild(u);
+      const wait = document.createElement('div'); wait.className = 'cw-msg cw-assistant cw-wait';
+      wait.innerHTML = '<span>Claude arbeitet… (kann etwas dauern)</span>'; log.appendChild(wait);
+      log.scrollTop = log.scrollHeight;
+      try {
+        const d = await (await fetch('{{ url_for("agent_send") }}', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: text }),
+        })).json();
+        render(d.messages);
+      } catch (err) {
+        wait.querySelector('span').textContent = 'Fehler: ' + err;
+      } finally { busy = false; input.focus(); }
+    });
+
+    let o = false; try { o = localStorage.getItem(TKEY) === '1'; } catch (e) {}
+    if (o) setOpen(true);
+  })();
+  </script>
+  {% include "_docviewer.html" %}
+  {% include "_dialog.html" %}
+</body>
+</html>

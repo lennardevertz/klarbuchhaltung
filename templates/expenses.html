@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% set active = "expenses" %}
+{% block title %}Ausgaben · Buchhaltung{% endblock %}
+{% block body %}
+<div class="page-head"><div><h1>Ausgaben</h1><p class="sub">{{ expenses|length }} Beleg(e)</p></div></div>
+
+<div class="card">
+  <h2>Neue Ausgabe erfassen</h2>
+  <form method="post" enctype="multipart/form-data">
+    <div class="field-row">
+      <div><label>Belegdatum</label><input type="date" name="date" value="{{ today }}" required></div>
+      <div><label>Bezahlt am</label><input type="date" name="paid_date" value="{{ today }}"></div>
+    </div>
+    <div class="field-row">
+      <div><label>Lieferant / Anbieter</label><input name="vendor" required></div>
+      <div><label>Konto / Kategorie</label>
+        <select name="category">
+          {% for a in expense_accounts %}<option value="{{ a }}">{{ a }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div><label>Beschreibung</label><input name="description"></div>
+      <div><label>Bruttobetrag (€)</label><input name="gross" placeholder="0,00" required></div>
+      <div><label>Vorsteuersatz %</label>
+        <select name="vat_rate">
+          <option value="19" {{ 'selected' if default_rate==19 }}>19 %</option>
+          <option value="7">7 %</option>
+          <option value="0">0 % (keine Vorsteuer)</option>
+        </select>
+      </div>
+    </div>
+    <div class="field-row">
+      <div><label>USt-Art</label>
+        <select name="vat_kind">
+          {% for key, label in vat_kinds %}<option value="{{ key }}">{{ label }}</option>{% endfor %}
+        </select>
+        <p class="hint">Bei §13b und innergemeinschaftlichem Erwerb stellt der Lieferant ohne
+          Steuer aus – der Zahlbetrag ist das Entgelt, der Satz oben bestimmt die selbst
+          geschuldete Steuer (zugleich Vorsteuer).</p></div>
+    </div>
+    <div class="field-row">
+      <div><label>Privatanteil %</label><input name="private_share" value="0" placeholder="0">
+        <p class="hint">z. B. Telefon = 80 (dann zählen nur 20 % als Betriebsausgabe/Vorsteuer). Ohne Beleg möglich.</p></div>
+      <div><label>Beleg (PDF/Bild, optional)</label><input type="file" name="receipt" accept=".pdf,image/*">
+        <p class="hint">Keine <em>privaten</em> Belege hochladen – nur betriebliche.</p></div>
+    </div>
+    <p style="margin-top:8px"><button class="btn" type="submit">Ausgabe speichern</button></p>
+  </form>
+</div>
+
+<div class="card">
+{% if expenses %}
+<input type="text" onkeyup="filterRows(this,'exptbl')" placeholder="Filtern (Lieferant, Kategorie…)" style="margin-bottom:14px">
+<table id="exptbl">
+  <thead><tr><th>Datum</th><th>Lieferant</th><th>Kategorie</th><th class="num">Privat</th>
+    <th class="num">Netto (gesch.)</th><th class="num">Vorsteuer</th><th class="num">gezahlt (brutto)</th><th>Beleg</th></tr></thead>
+  <tbody>
+    {% for e in expenses %}
+    <tr>
+      <td>{{ e['date']|de_date }}</td>
+      <td>{{ e['vendor'] }}</td>
+      <td>{{ e['category'] }}</td>
+      <td class="num">{{ (e['private_share'] or 0)|round(0)|int }} %</td>
+      <td class="num">{{ e['net']|eur }}</td>
+      <td class="num">{{ e['vat']|eur }}</td>
+      <td class="num">{{ (e['gross_full'] if e['gross_full'] else e['gross'])|eur }}</td>
+      <td>{% if e['receipt_path'] %}<a href="{{ url_for('expense_receipt', eid=e['id']) }}" target="_blank">Beleg</a>{% else %}—{% endif %}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+<p class="hint">„Netto (gesch.)" und „Vorsteuer" sind bereits um den Privatanteil gekürzt – nur der betriebliche Teil.</p>
+{% else %}
+<p class="muted">Noch keine Ausgaben erfasst.</p>
+{% endif %}
+</div>
+<script>
+function filterRows(inp, id){
+  const q = inp.value.toLowerCase();
+  document.querySelectorAll('#'+id+' tbody tr').forEach(tr => {
+    tr.style.display = tr.textContent.toLowerCase().includes(q) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

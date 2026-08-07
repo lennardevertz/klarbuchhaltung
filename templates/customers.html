@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% set active = "customers" %}
+{% block title %}Kunden · Buchhaltung{% endblock %}
+{% block body %}
+<div class="page-head"><div><h1>Kunden</h1><p class="sub">{{ customers|length }} Kunde(n)</p></div></div>
+
+<div class="card">
+  <h2>Neuen Kunden anlegen</h2>
+  <form method="post">
+    <div class="field-row">
+      <div><label>Name / Firma</label><input name="name" required></div>
+      <div><label>USt-IdNr. / VAT No. <span class="muted">(EU/optional)</span></label><input name="vat_id"></div>
+    </div>
+    <label>Adresse (eine Zeile je Feld)</label>
+    <textarea name="address" placeholder="Straße&#10;PLZ Ort&#10;Land"></textarea>
+    <p style="margin-top:14px"><button class="btn" type="submit">Kunde speichern</button></p>
+  </form>
+</div>
+
+<div class="card">
+{% if customers %}
+<table>
+  <thead><tr><th>ID</th><th>Name</th><th>USt-IdNr. / VAT</th><th>Adresse</th></tr></thead>
+  <tbody>
+    {% for c in customers %}
+    <tr>
+      <td>{{ c['id'] }}</td>
+      <td>{{ c['name'] }}</td>
+      <td>{{ c['vat_id'] or '—' }}</td>
+      <td class="muted">{{ (c['address'] or '').replace('\n', ', ') }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% else %}
+<p class="muted">Noch keine Kunden. Kunden entstehen auch automatisch beim Erstellen einer Rechnung.</p>
+{% endif %}
+</div>
+{% endblock %}

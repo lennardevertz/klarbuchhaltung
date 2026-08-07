@@ -1,0 +1,99 @@
+{# Ersatz für die nativen confirm()/alert()-Fenster. In der Desktop-App rendert
+   WebKit die mit Python-Icon und Systemknöpfen – das passt nicht und blockiert
+   obendrein die Automatisierung. klarConfirm/klarAlert liefern Promises. #}
+<style>
+  /* Als <dialog> + showModal(), damit es auch über einem anderen offenen
+     <dialog> liegt (Top-Layer) – ein z-index-Overlay läge darunter. */
+  .kd-scrim{ border:none; padding:0; background:none; max-width:none; max-height:none;
+    width:100%; height:100%; overflow:visible; }
+  .kd-scrim::backdrop{ background:rgba(22,23,29,.45); }
+  .kd-scrim > .kd-box{ position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); }
+  .kd-box{ background:var(--surface); border-radius:var(--r-2xl,16px); width:min(420px,94vw);
+    box-shadow:var(--shadow-lg,0 24px 60px rgba(22,23,29,.28)); padding:22px; color:var(--ink); }
+  .kd-titel{ font-family:var(--font-display,inherit); font-size:16.5px; font-weight:600;
+    color:var(--ink); margin:0 0 8px; }
+  .kd-text{ font-size:14px; line-height:1.55; color:var(--ink-2); margin:0; white-space:pre-line; }
+  .kd-reihe{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  .kd-btn{ height:38px; padding:0 16px; border-radius:10px; font:inherit; font-size:14px;
+    font-weight:600; cursor:pointer; border:1px solid var(--field-border);
+    background:var(--surface); color:var(--ink-2); }
+  .kd-btn:hover{ background:var(--wash); }
+  .kd-btn--primary{ background:var(--ink); border-color:var(--ink); color:#fff; }
+  .kd-btn--primary:hover{ background:#000; }
+  .kd-btn--gefahr{ background:var(--coral); border-color:var(--coral); color:#fff; }
+  .kd-btn--gefahr:hover{ filter:brightness(.93); }
+</style>
+
+<dialog id="kd" class="kd-scrim" aria-labelledby="kd-titel">
+  <div class="kd-box">
+    <h2 class="kd-titel" id="kd-titel"></h2>
+    <p class="kd-text" id="kd-text"></p>
+    <div class="kd-reihe">
+      <button class="kd-btn" id="kd-nein" type="button">Abbrechen</button>
+      <button class="kd-btn kd-btn--primary" id="kd-ja" type="button">OK</button>
+    </div>
+  </div>
+</dialog>
+
+<script>
+(function(){
+  const scrim = document.getElementById('kd'), titel = document.getElementById('kd-titel'),
+        text = document.getElementById('kd-text'), ja = document.getElementById('kd-ja'),
+        nein = document.getElementById('kd-nein');
+  let schliessen = null;
+
+  function oeffnen({ titelText, inhalt, jaText, neinText, gefahr }){
+    return new Promise(res => {
+      titel.textContent = titelText;
+      titel.hidden = !titelText;
+      text.textContent = inhalt || '';
+      ja.textContent = jaText || 'OK';
+      ja.className = 'kd-btn ' + (gefahr ? 'kd-btn--gefahr' : 'kd-btn--primary');
+      nein.textContent = neinText || 'Abbrechen';
+      nein.hidden = !neinText;
+      scrim.showModal();
+      ja.focus();
+
+      schliessen = (wert) => {
+        schliessen = null;
+        if(scrim.open) scrim.close();
+        res(wert);
+      };
+    });
+  }
+
+  ja.addEventListener('click', () => schliessen && schliessen(true));
+  nein.addEventListener('click', () => schliessen && schliessen(false));
+  // Escape löst 'cancel' aus – als Abbruch werten, nicht als Bestätigung.
+  scrim.addEventListener('cancel', () => schliessen && schliessen(false));
+  scrim.addEventListener('click', e => {
+    if(e.target === scrim && schliessen) schliessen(false);   // Klick daneben
+  });
+
+  /** Rückfrage. Auflösung: true = bestätigt. */
+  window.klarConfirm = (inhalt, opt = {}) => oeffnen({
+    titelText: opt.titel || 'Bestätigen',
+    inhalt,
+    jaText: opt.ja || 'OK',
+    neinText: opt.nein || 'Abbrechen',
+    gefahr: opt.gefahr,
+  });
+
+  /** Hinweis mit nur einem Knopf. */
+  window.klarAlert = (inhalt, opt = {}) => oeffnen({
+    titelText: opt.titel || 'Hinweis',
+    inhalt,
+    jaText: opt.ja || 'Verstanden',
+    neinText: null,
+  });
+
+  /** Für <form onsubmit>: fragt nach und schickt danach selbst ab. */
+  window.klarConfirmSubmit = (form, inhalt, opt = {}) => {
+    if(form.dataset.kdOk === '1'){ delete form.dataset.kdOk; return true; }
+    klarConfirm(inhalt, opt).then(ok => {
+      if(ok){ form.dataset.kdOk = '1'; form.requestSubmit ? form.requestSubmit() : form.submit(); }
+    });
+    return false;
+  };
+})();
+</script>

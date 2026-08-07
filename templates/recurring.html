@@ -1,0 +1,43 @@
+{% extends "base_klar.html" %}
+{% block title %}Wiederkehrend · Klar{% endblock %}
+{% block body %}
+
+<div class="kl-pagehead">
+  <div><h1>Wiederkehrend</h1><p class="sub">Regelmäßige Rechnungen &amp; Zeitpläne</p></div>
+  <button class="btn btn--primary" onclick="openModal('rec-add')">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Neuer Zeitplan</button>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 130px 120px 120px 120px;gap:16px;align-items:center;padding:11px 20px;border-bottom:1px solid var(--line-3);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-4)">
+    <span>Kunde · Leistung</span><span>Intervall</span><span>Nächster Lauf</span><span style="text-align:right">Betrag</span><span></span>
+  </div>
+  {% for it in items %}
+  <div style="display:grid;grid-template-columns:minmax(0,1fr) 130px 120px 120px 120px;gap:16px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line-3);{{ 'opacity:.5' if not it.active }}">
+    <div><div style="font-weight:600">{{ it.client }}</div><div class="txn__meta">{{ it.service }}</div></div>
+    <span class="tag" style="font-size:12px">{{ it.interval }}</span>
+    <span class="num" style="font-size:13.5px">{{ it.next_run|de_date }}</span>
+    <span class="num" style="text-align:right;font-weight:600">{% if it.amount %}{{ it.amount }} €{% else %}—{% endif %}</span>
+    <div class="row" style="gap:6px;justify-content:flex-end">
+      <form method="post"><input type="hidden" name="act" value="toggle"><input type="hidden" name="id" value="{{ it.id }}"><button class="btn btn--ghost btn--sm" type="submit">{{ 'Pause' if it.active else 'Aktiv' }}</button></form>
+      <form method="post" onsubmit="return klarConfirmSubmit(this, 'Diese wiederkehrende Buchung löschen?', {titel:'Löschen', ja:'Löschen', gefahr:true})"><input type="hidden" name="act" value="delete"><input type="hidden" name="id" value="{{ it.id }}"><button class="iconbtn" type="submit"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></form>
+    </div>
+  </div>
+  {% else %}<div class="muted" style="padding:44px;text-align:center">Noch keine Zeitpläne. Lege einen an.</div>{% endfor %}
+</div>
+
+<div id="rec-add" class="scrim" hidden>
+  <div class="modal"><div class="modal__head"><h2>Neuer Zeitplan</h2><button class="iconbtn" onclick="closeModal('rec-add')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal__body"><form method="post" class="stack"><input type="hidden" name="act" value="add">
+      <div class="field"><label>Kunde</label><input class="input" name="client" list="cust" required><datalist id="cust">{% for c in customers %}<option value="{{ c['name'] }}">{% endfor %}</datalist></div>
+      <div class="field"><label>Leistung</label><input class="input" name="service" placeholder="z. B. Retainer"></div>
+      <div class="row" style="gap:12px">
+        <div class="field" style="flex:1"><label>Intervall</label><select class="select" name="interval"><option>monatlich</option><option>quartalsweise</option><option>jährlich</option></select></div>
+        <div class="field" style="flex:1"><label>Betrag (netto)</label><input class="input" name="amount" placeholder="0,00"></div>
+      </div>
+      <div class="field"><label>Nächster Lauf</label><input class="input" type="date" name="next_run" value="{{ today }}"></div>
+      <div class="row" style="justify-content:flex-end;gap:10px"><button class="btn btn--ghost" type="button" onclick="closeModal('rec-add')">Abbrechen</button><button class="btn btn--primary" type="submit">Anlegen</button></div>
+    </form></div>
+  </div>
+</div>
+{% endblock %}

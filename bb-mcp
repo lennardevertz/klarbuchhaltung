@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# MCP-Server (stdio) für Claude Code / Codex / Cursor.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+exec "$DIR/.venv/bin/python" "$DIR/mcp_server.py"

@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="de" data-accent="{{ accent|default('green') }}" data-density="{{ density|default('airy') }}">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Klar · Buchhaltung{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='tokens.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='components.css') }}">
+  <style>
+    .isend-lbl{ display:block;font-size:12px;font-weight:600;color:var(--ink-2);margin-bottom:6px }
+    .isend-inp{ width:100%;font:400 14px 'Instrument Sans';color:var(--ink);padding:11px 13px;border-radius:11px;border:1.5px solid var(--field-border);background:var(--surface);outline:none }
+    @keyframes askblink{ 0%,80%,100%{opacity:.25} 40%{opacity:1} }
+    .ask-typing{ display:inline-flex; gap:4px; align-items:center; }
+    .ask-typing span{ width:7px; height:7px; border-radius:50%; background:var(--ink-3); animation:askblink 1.2s infinite both; }
+    .ask-typing span:nth-child(2){ animation-delay:.2s } .ask-typing span:nth-child(3){ animation-delay:.4s }
+    .kl-shell{ display:flex; min-height:100vh; background:var(--paper); }
+    .kl-side{ width:236px; flex-shrink:0; background:var(--surface); border-right:1px solid var(--line-2);
+      display:flex; flex-direction:column; padding:20px 14px; position:sticky; top:0; height:100vh; }
+    .kl-logo{ display:flex; align-items:center; gap:9px; padding:0 6px 20px; }
+    .kl-logo .mark{ width:32px; height:32px; border-radius:10px; background:var(--ink); display:flex;
+      align-items:center; justify-content:center; position:relative; }
+    .kl-logo .mark span{ color:var(--surface); font-weight:700; font-size:16px; }
+    .kl-logo .dot{ position:absolute; right:-3px; top:-3px; width:10px; height:10px; border-radius:50%;
+      background:var(--accent); border:2px solid var(--surface); }
+    .kl-nav a{ display:flex; align-items:center; gap:11px; padding:10px 12px; border-radius:11px;
+      color:#3C3E49; font-size:14px; font-weight:500; margin-bottom:3px; text-decoration:none; }
+    .kl-nav a svg{ stroke:var(--ink-3); }
+    .kl-nav a:hover{ background:var(--surface-2); text-decoration:none; }
+    .kl-nav a.active{ background:var(--accent-tint); color:var(--accent-deep); font-weight:600; }
+    .kl-nav a.active svg{ stroke:currentColor; }
+    .kl-divider{ height:1px; background:var(--line-3); margin:12px 8px 8px; }
+    .kl-grouplabel{ font-size:10.5px; font-weight:600; letter-spacing:.1em; text-transform:uppercase;
+      color:var(--ink-4); padding:2px 12px 6px; }
+    .kl-sub a{ text-decoration:none; display:flex; align-items:center; gap:11px; padding:8px 12px;
+      border-radius:10px; color:var(--ink-2); font-size:13px; font-weight:500; }
+    .kl-sub a svg{ stroke:var(--ink-3); }
+    .kl-sub a:hover{ background:var(--surface-2); text-decoration:none; }
+    .kl-spacer{ flex:1; }
+    .kl-ask{ display:flex; align-items:center; gap:10px; padding:11px 12px; border-radius:12px;
+      background:var(--ink); color:var(--surface); text-decoration:none; }
+    .kl-ask:hover{ text-decoration:none; filter:brightness(1.3); }
+    .kl-ask .kbd{ margin-left:auto; font-size:11px; color:#9BA0AC; background:rgba(255,255,255,.1);
+      padding:2px 7px; border-radius:6px; }
+    .kl-user{ text-decoration:none; color:inherit; display:flex; align-items:center; gap:10px;
+      padding:9px 10px; border-radius:11px; }
+    .kl-user:hover{ background:var(--surface-2); text-decoration:none; }
+    .kl-user .av{ width:32px; height:32px; border-radius:50%; background:var(--amber-tint); color:var(--amber-deep);
+      flex-shrink:0; display:flex; align-items:center; justify-content:center;
+      font-family:var(--font-display); font-weight:700; font-size:13px; }
+    /* Konto-Kachel unten: eine Zeile, Menü klappt beim Überfahren auf. */
+    .kl-account{ position:relative; margin-top:8px; }
+    .kl-account > .kl-user{ width:100%; box-sizing:border-box; border:none; background:none;
+      font-family:inherit; text-align:left; cursor:pointer; }
+    .kl-account:hover > .kl-user, .kl-account:focus-within > .kl-user{ background:var(--surface-2); }
+    .kl-account .chev{ margin-left:auto; flex-shrink:0; color:var(--ink-3);
+      transition:transform .15s ease; }
+    .kl-account:hover .chev, .kl-account:focus-within .chev{ transform:rotate(180deg); }
+    .kl-menu{ position:absolute; left:0; right:0; bottom:100%; margin-bottom:6px; z-index:60;
+      background:var(--surface); border:1px solid var(--line-2); border-radius:12px;
+      box-shadow:var(--shadow-lg,0 14px 34px rgba(22,23,29,.16)); padding:5px;
+      opacity:0; visibility:hidden; transform:translateY(4px);
+      transition:opacity .13s ease, transform .13s ease, visibility .13s; }
+    .kl-account:hover .kl-menu, .kl-account:focus-within .kl-menu{
+      opacity:1; visibility:visible; transform:translateY(0); }
+    .kl-menu button, .kl-menu a{ display:flex; align-items:center; gap:9px; width:100%;
+      box-sizing:border-box; padding:8px 10px; border:none; background:none; border-radius:8px;
+      font:inherit; font-size:13.5px; color:var(--ink); text-align:left; cursor:pointer;
+      text-decoration:none; }
+    .kl-menu button:hover, .kl-menu a:hover{ background:var(--wash); text-decoration:none; }
+    .kl-menu svg{ stroke:var(--ink-3); flex-shrink:0; }
+    .kl-menu form{ margin:0; }
+    .kl-menu .trenner{ height:1px; background:var(--line-3); margin:4px 6px; }
+    .kl-main{ flex:1; min-width:0; padding:26px 32px 48px; max-width:1180px; }
+    .kl-flash{ padding:12px 16px; border-radius:var(--r-md); margin-bottom:16px; font-size:14px; font-weight:500; }
+    .kl-flash.ok{ background:var(--green-tint); color:var(--green-deep); }
+    .kl-flash.error{ background:var(--coral-tint); color:var(--coral-deep); }
+    .kl-pagehead{ display:flex; align-items:flex-end; justify-content:space-between; gap:20px;
+      flex-wrap:wrap; margin-bottom:24px; }
+    .kl-pagehead h1{ margin:0; font-family:var(--font-display); font-weight:700; font-size:30px; letter-spacing:var(--tracking-tight); }
+    .kl-pagehead .sub{ margin:5px 0 0; font-size:14.5px; color:var(--ink-2); }
+    /* Modals (geteilt) */
+    .scrim{ position:fixed; inset:0; background:rgba(22,23,29,.42); z-index:900;
+      display:flex; align-items:center; justify-content:center; padding:24px; }
+    .scrim[hidden]{ display:none; }
+    .modal{ background:var(--surface); border-radius:var(--r-2xl); box-shadow:var(--shadow-lg);
+      width:min(560px,94vw); max-height:90vh; overflow:auto; }
+    .modal--wide{ width:min(720px,94vw); }
+    .modal__head{ display:flex; align-items:center; justify-content:space-between; padding:22px 24px 14px; }
+    .modal__head h2{ margin:0; font-family:var(--font-display); font-size:var(--fs-title); font-weight:600; }
+    .modal__body{ padding:0 24px 24px; }
+    .iconbtn{ border:none; background:transparent; color:var(--ink-3); cursor:pointer; padding:6px; border-radius:8px; display:inline-flex; }
+    .iconbtn:hover{ background:var(--wash); color:var(--ink); }
+    /* Fallback falls ein Select (noch) nicht upgegradet ist */
+    select.select{
+      -webkit-appearance:none; -moz-appearance:none; appearance:none;
+      background-image:url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="none" stroke="%239599A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 5 5 5-5"/></svg>');
+      background-repeat:no-repeat; background-position:right 12px center; padding-right:38px;
+    }
+    /* Custom-Dropdown (upgradet alle <select> app-weit) */
+    .kls{ position:relative; }
+    .kls-trigger{ display:flex; align-items:center; justify-content:space-between; gap:8px;
+      padding:var(--control-pad-y) 14px; border:1.5px solid var(--field-border); border-radius:var(--r-md);
+      background:var(--surface); cursor:pointer; font-size:var(--fs-body); color:var(--ink); line-height:1.2; }
+    .kls-trigger:hover, .kls-trigger.open{ border-color:var(--ink); }
+    .kls-label{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .kls-chev{ color:var(--ink-3); flex-shrink:0; transition:transform .12s; }
+    .kls-trigger.open .kls-chev{ transform:rotate(180deg); }
+    .kls-panel{ position:fixed; z-index:1200; min-width:240px; background:var(--surface); color:var(--ink);
+      border:1px solid var(--line-2); border-radius:var(--r-xl); box-shadow:0 24px 50px -20px rgba(20,18,10,.4); padding:8px; max-height:min(420px,70vh); overflow:auto; }
+    .kls-panel[hidden]{ display:none; }
+    .kls-searchwrap{ position:sticky; top:0; background:var(--surface); padding:0 0 7px; z-index:1; }
+    .kls-search{ width:100%; box-sizing:border-box; border:1.5px solid var(--field-border); border-radius:9px;
+      padding:8px 11px; font-family:inherit; font-size:14px; color:var(--ink); background:var(--surface); outline:none; }
+    .kls-search:focus{ border-color:var(--ink); }
+    .kls-empty{ padding:14px; color:var(--ink-3); font-size:13px; text-align:center; }
+    .kls-opt{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:11px 12px; border-radius:10px; cursor:pointer; font-size:15px; font-weight:500; }
+    .kls-opt>span{ white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+    .kls-opt:hover{ background:var(--surface-2); }
+    .kls-opt.on{ background:var(--accent-tint); color:var(--accent-deep); font-weight:600; }
+    .kls-opt .kls-check{ flex-shrink:0; color:var(--accent-deep); }
+    /* Kalender-Datepicker (upgradet input[type=date]) */
+    .kcal{ position:relative; }
+    .kcal-field{ display:flex; align-items:center; padding:var(--control-pad-y) 14px; border:1.5px solid var(--field-border); border-radius:var(--r-md); background:var(--surface); cursor:pointer; min-height:44px; }
+    .kcal-field:hover, .kcal-field.open{ border-color:var(--ink); }
+    .kcal-day{ background:var(--accent); color:#fff; border-radius:5px; padding:1px 5px; margin-right:1px; }
+    .kcal-panel{ position:fixed; z-index:1300; width:300px; background:var(--surface); border:1px solid var(--line-2); border-radius:var(--r-xl); box-shadow:0 24px 50px -20px rgba(20,18,10,.4); padding:16px; }
+    .kcal-panel[hidden]{ display:none; }
+    .kcal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+    .kcal-nav{ display:flex; gap:2px; }
+    .kcal-nav button{ cursor:pointer; border:none; background:transparent; width:28px; height:28px; border-radius:8px; color:var(--ink-2); display:flex; align-items:center; justify-content:center; }
+    .kcal-nav button:hover{ background:var(--wash); }
+    .kcal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+    .kcal-wd{ border-bottom:1px solid var(--line-3); padding-bottom:8px; margin-bottom:6px; }
+    .kcal-wd span{ text-align:center; font-size:12px; font-weight:600; color:var(--ink-3); }
+    .kcal-db{ cursor:pointer; border:none; height:34px; border-radius:9px; font-family:var(--font-display); font-variant-numeric:tabular-nums; font-size:14px; display:flex; align-items:center; justify-content:center; background:transparent; color:var(--ink); }
+    .kcal-db:hover{ background:var(--wash); }
+    .kcal-db.out{ color:#C9C6BB; }
+    .kcal-db.sel{ background:var(--accent); color:#fff; font-weight:600; }
+  </style>
+  {% block head %}{% endblock %}
+</head>
+<body>
+  <div class="kl-shell">
+    {% include "_sidebar.html" %}
+    <main class="kl-main">
+      {% with messages = get_flashed_messages(with_categories=true) %}
+        {% for cat, msg in messages %}
+          <div class="kl-flash {{ cat }}">{{ msg }}</div>
+        {% endfor %}
+      {% endwith %}
+      {% block body %}{% endblock %}
+    </main>
+  </div>
+
+  {# ── Rechnung senden (Modal, Mockup „Klar Invoice Send") ── #}
+  <div id="isend" style="position:fixed;inset:0;z-index:900;background:rgba(22,23,29,.42);display:none;align-items:flex-start;justify-content:center;padding:5vh 20px 20px;overflow-y:auto">
+    <div id="isend-box" style="width:900px;max-width:100%;background:var(--surface);border-radius:22px;box-shadow:0 30px 70px -30px rgba(20,18,10,.5);overflow:hidden">
+      {# COMPOSE #}
+      <div id="isend-compose">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;padding:22px 26px;border-bottom:1px solid var(--line-3)">
+          <div><div class="disp" style="font-weight:700;font-size:21px">Rechnung senden</div><div id="isend-sub" style="font-size:13px;color:var(--ink-3);margin-top:2px"></div></div>
+          <button type="button" onclick="closeInvoiceSend()" class="iconbtn" style="background:var(--wash);width:34px;height:34px;border-radius:10px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <div style="display:grid;grid-template-columns:340px 1fr;gap:0">
+          {# preview #}
+          <div style="background:var(--wash);border-right:1px solid var(--line-3);padding:24px;display:flex;flex-direction:column;align-items:center;gap:12px">
+            <div style="width:100%;background:var(--surface);border:1px solid var(--line-2);border-radius:12px 12px 0 0;box-shadow:0 12px 30px -18px rgba(20,18,10,.3);padding:20px">
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:18px"><div style="display:flex;align-items:center;gap:8px"><div style="width:26px;height:26px;border-radius:7px;background:var(--ink);display:flex;align-items:center;justify-content:center"><span class="disp" style="color:var(--surface);font-weight:700;font-size:13px">K</span></div><div><div class="disp" style="font-weight:700;font-size:12px">Rechnung</div><div class="num" id="isend-pv-num" style="font-size:10.5px;color:var(--ink-3)"></div></div></div><span id="isend-pv-status" style="font-size:10px;font-weight:600;padding:3px 8px;border-radius:999px;background:var(--wash);color:var(--ink-2)"></span></div>
+              <div style="display:flex;justify-content:space-between;margin-bottom:14px;font-size:10.5px"><div><div style="color:var(--ink-3);margin-bottom:2px">Von</div><div id="isend-pv-from" style="font-weight:600"></div></div><div style="text-align:right"><div style="color:var(--ink-3);margin-bottom:2px">An</div><div id="isend-pv-to" style="font-weight:600"></div></div></div>
+              <div id="isend-pv-lines" style="border-top:1px solid var(--line-3);padding-top:10px;display:flex;flex-direction:column;gap:6px;font-size:11px"></div>
+              <div style="border-top:1px solid var(--line-3);margin-top:10px;padding-top:10px;display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:11px;font-weight:600">Gesamt</span><span class="disp" id="isend-pv-gross" style="font-weight:700;font-size:18px"></span></div>
+            </div>
+            <div style="width:100%;height:12px;background:radial-gradient(circle at 7px 12px,var(--wash) 5px,var(--surface) 5.5px);background-size:14px 12px;background-repeat:repeat-x;border-left:1px solid var(--line-2);border-right:1px solid var(--line-2)"></div>
+            <button type="button" id="isend-pdf" class="btn btn--outline btn--sm"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>PDF-Vorschau</button>
+          </div>
+          {# form #}
+          <div style="padding:24px 26px;display:flex;flex-direction:column;gap:16px">
+            <div style="display:flex;gap:6px;background:var(--wash);padding:4px;border-radius:12px">
+              <button type="button" id="isend-tab-send" style="flex:1;cursor:pointer;border:none;font:600 13.5px 'Instrument Sans';padding:10px;border-radius:9px">Jetzt per Email senden</button>
+              <button type="button" id="isend-tab-save" style="flex:1;cursor:pointer;border:none;font:600 13.5px 'Instrument Sans';padding:10px;border-radius:9px">Nur als PDF speichern</button>
+            </div>
+            <div id="isend-fields" style="display:flex;flex-direction:column;gap:16px">
+              <div><label class="isend-lbl">An</label><input id="isend-to" type="email" placeholder="kunde@firma.de" class="isend-inp"></div>
+              <div><label class="isend-lbl">CC</label><input id="isend-cc" placeholder="optional" class="isend-inp"></div>
+              <div><label class="isend-lbl">Betreff</label><input id="isend-subj" class="isend-inp"></div>
+              <div><label class="isend-lbl">Nachricht</label><textarea id="isend-body" rows="5" class="isend-inp" style="resize:vertical;line-height:1.5"></textarea></div>
+              <div style="display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2);background:var(--wash);border:1px solid var(--line-2);border-radius:10px;padding:10px 13px"><div style="width:28px;height:34px;border-radius:5px;background:var(--coral-tint);color:var(--coral-deep);display:flex;align-items:center;justify-content:center;font:700 8px 'Space Grotesk';flex-shrink:0">PDF</div><span id="isend-att" style="flex:1"></span><span style="color:var(--ink-3);font-size:12px">angehängt</span></div>
+              <label style="display:flex;align-items:center;gap:9px;font-size:13px;color:var(--ink-2);cursor:pointer"><input type="checkbox" id="isend-copy" checked style="width:15px;height:15px;accent-color:var(--ink)">Kopie an mich senden</label>
+            </div>
+            <div id="isend-savenote" hidden style="padding:20px;background:var(--wash);border:1px solid var(--line-2);border-radius:12px;font-size:14px;color:var(--ink-2);line-height:1.55">Die Rechnung ist bereits als PDF gespeichert. Du kannst sie jederzeit aus der Rechnungsliste versenden oder herunterladen.</div>
+            <div id="isend-err" style="font-size:13px;color:var(--coral-deep)"></div>
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-top:auto;padding-top:6px">
+              <button type="button" onclick="closeInvoiceSend()" class="btn btn--outline">Abbrechen</button>
+              <button type="button" id="isend-go" class="btn" style="background:var(--accent);color:#fff;border:none">Senden</button>
+            </div>
+          </div>
+        </div>
+      </div>
+      {# SUCCESS #}
+      <div id="isend-success" style="padding:44px 40px;text-align:center;display:none;flex-direction:column;align-items:center">
+        <div style="width:60px;height:60px;border-radius:50%;background:var(--accent-tint);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;margin-bottom:18px"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></div>
+        <h2 class="disp" id="isend-suc-title" style="margin:0 0 6px;font-weight:700;font-size:24px"></h2>
+        <p id="isend-suc-body" style="margin:0 0 24px;font-size:14.5px;color:var(--ink-2);max-width:400px;line-height:1.55"></p>
+        <div style="display:flex;gap:10px">
+          <a href="{{ url_for('zahlungen') }}" class="btn btn--outline">Zahlung zuordnen</a>
+          <button type="button" onclick="closeInvoiceSend(true)" class="btn btn--primary">Fertig</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+  (function(){
+    const M=document.getElementById('isend'); if(!M) return;
+    const $=id=>document.getElementById(id);
+    const esc=s=>(s==null?'':String(s)).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    let cur={number:null, mode:'send'};
+    const tab=on=>'flex:1;cursor:pointer;border:none;font:600 13.5px \'Instrument Sans\';padding:10px;border-radius:9px;'+(on?'background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(20,18,10,.12)':'background:transparent;color:var(--ink-3)');
+    function setMode(m){ cur.mode=m; const s=m==='send';
+      $('isend-tab-send').style.cssText=tab(s); $('isend-tab-save').style.cssText=tab(!s);
+      $('isend-fields').style.display=s?'flex':'none'; $('isend-savenote').hidden=s;
+      $('isend-go').textContent=s?'Senden':'Speichern'; }
+    window.openInvoiceSend=async function(number){
+      $('isend-err').textContent=''; $('isend-compose').style.display='block'; $('isend-success').style.display='none';
+      M.style.display='flex'; setMode('send');
+      try{
+        const d=await (await fetch('{{ url_for("chat_api_invoice_compose") }}?number='+encodeURIComponent(number))).json();
+        if(d.error){ $('isend-err').textContent=d.error; return; }
+        cur={number:d.number, mode:'send'};
+        $('isend-sub').textContent='#'+d.number+' · '+(d.to_name||'');
+        $('isend-pv-num').textContent=d.number; $('isend-pv-status').textContent=d.status;
+        $('isend-pv-from').textContent=d.from_name||'—'; $('isend-pv-to').textContent=d.to_name||'';
+        let lh=''; (d.lines||[]).forEach(l=>{ lh+='<div style="display:flex;justify-content:space-between"><span style="color:var(--ink-2)">'+esc(l.desc)+'</span><span class="num" style="font-weight:600">'+esc(l.amount)+'</span></div>'; });
+        lh+='<div style="display:flex;justify-content:space-between;margin-top:4px"><span style="color:var(--ink-3)">'+esc(d.vat_label)+'</span><span class="num" style="color:var(--ink-2)">'+esc(d.reverse?'—':d.vat_amount)+'</span></div>';
+        $('isend-pv-lines').innerHTML=lh; $('isend-pv-gross').textContent=d.gross;
+        $('isend-to').value=d.to_email||''; $('isend-cc').value=''; $('isend-subj').value=d.subject||'';
+        $('isend-body').value=d.body||''; $('isend-att').textContent='Rechnung_'+d.number+'.pdf';
+        $('isend-pdf').onclick=()=>window.open(d.pdf,'_blank');
+        setTimeout(()=>{ const to=$('isend-to'); to.focus(); },50);
+      }catch(e){ $('isend-err').textContent='Konnte Rechnung nicht laden.'; }
+    };
+    window.closeInvoiceSend=function(){ M.style.display='none'; };
+    $('isend-tab-send').onclick=()=>setMode('send');
+    $('isend-tab-save').onclick=()=>setMode('save');
+    M.addEventListener('click',e=>{ if(e.target===M) closeInvoiceSend(); });
+    $('isend-go').onclick=async function(){
+      if(cur.mode==='save'){ closeInvoiceSend(); return; }
+      const to=$('isend-to').value.trim();
+      if(!to){ $('isend-to').focus(); $('isend-to').style.borderColor='var(--coral)'; return; }
+      const btn=this; btn.disabled=true; btn.textContent='Sende…'; $('isend-err').textContent='';
+      try{
+        const d=await (await fetch('{{ url_for("chat_api_invoice_send") }}',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({number:cur.number, to:to, cc:$('isend-cc').value.trim(), subject:$('isend-subj').value, body:$('isend-body').value, copy_self:$('isend-copy').checked})})).json();
+        btn.disabled=false; btn.textContent='Senden';
+        if(d.error){ $('isend-err').textContent=d.error; return; }
+        $('isend-compose').style.display='none'; $('isend-success').style.display='flex';
+        $('isend-suc-title').textContent='Rechnung gesendet';
+        $('isend-suc-body').textContent=cur.number+' ging an '+to+'. Status steht jetzt auf „Versendet".';
+        if(window.askRefresh) window.askRefresh();
+      }catch(e){ btn.disabled=false; btn.textContent='Senden'; $('isend-err').textContent='Versand fehlgeschlagen.'; }
+    };
+  })();
+  </script>
+
+  {# ── Ask Klar: angedocktes Assistant-Panel (auf jeder Seite) ── #}
+  <div id="ask-dock" hidden style="position:fixed;top:0;right:0;height:100vh;width:404px;max-width:94vw;z-index:850;padding:14px;">
+    <div class="assistant" style="height:100%;position:relative">
+      <div class="assistant__head">
+        <div style="width:30px;height:30px;border-radius:9px;background:var(--ink);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.7L18.6 9l-4.7 1.9L12 15.6 10.1 10.9 5.4 9l4.7-1.3z"/></svg></div>
+        <div style="flex:1;min-width:0"><strong>Ask Klar</strong></div>
+        <button class="iconbtn" type="button" onclick="askReset()" title="Neu">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg></button>
+        <button class="iconbtn" type="button" onclick="toggleAsk()" title="Schließen">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+      </div>
+      <div id="ask-warn" class="card card--tint" hidden style="margin:12px;box-shadow:none;padding:12px 14px;font-size:13px">Kein LLM-Zugang. Unter <a href="{{ url_for('settings', tab='llm') }}">Einstellungen → LLM</a> Base-URL, Modell &amp; Key eintragen.</div>
+      <div class="assistant__body" id="ask-log"></div>
+      <div style="border-top:1px solid var(--line-3);padding:12px;background:var(--surface)">
+        <div id="ask-chip" style="display:none;align-items:center;gap:9px;background:var(--wash);border-radius:10px;padding:7px 9px;margin-bottom:10px">
+          <div id="ask-chip-badge" style="width:26px;height:32px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:8px;flex-shrink:0"></div>
+          <div style="flex:1;min-width:0"><div id="ask-chip-name" style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div id="ask-chip-size" class="muted" style="font-size:11px"></div></div>
+          <button type="button" class="iconbtn" onclick="askClearFile()" style="padding:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        </div>
+        <form id="ask-form" class="row" style="gap:8px">
+          <input type="file" id="ask-file" accept="application/pdf,.pdf,image/*,.csv" hidden>
+          <button type="button" class="btn btn--icon btn--outline" title="Datei anhängen" onclick="document.getElementById('ask-file').click()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg></button>
+          <input class="input" id="ask-input" placeholder="Nachricht…" autocomplete="off" style="flex:1">
+          <button class="btn btn--primary" type="submit">Senden</button>
+        </form>
+      </div>
+      <div id="ask-drop" style="position:absolute;inset:0;z-index:6;border:2px dashed var(--accent);border-radius:var(--r-2xl);background:rgba(228,246,238,.92);display:none;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;padding:0 30px;pointer-events:none">
+        <div style="width:52px;height:52px;border-radius:15px;background:#fff;display:flex;align-items:center;justify-content:center;color:var(--accent-deep)"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg></div>
+        <div><div style="font-size:16px;font-weight:700;color:var(--green-deep)">Beleg hier ablegen</div><div style="font-size:13px;color:var(--green-deep);margin-top:3px">PDF, JPG, PNG oder CSV</div></div>
+      </div>
+    </div>
+  </div>
+  <script>
+    (function(){
+      const log=()=>document.getElementById('ask-log'), input=()=>document.getElementById('ask-input');
+      let busy=false, loaded=false, pending=null;
+      const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+      const md=s=>esc(s).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>');
+      const PALETTE=['#16171D','#3B6EF5','#9B7BE5','#1FA971','#F0A31A','#F5573B','#5C5F6E'];
+      const STARTERS=[
+        {label:'Rechnung erstellen', prompt:'Ich möchte eine Rechnung erstellen.', bg:'var(--green-tint)', fg:'var(--green-deep)', icon:'M4 4h11l5 5v11H4z M15 4v5h5'},
+        {label:'Wofür gebe ich am meisten aus?', prompt:'Wofür gebe ich dieses Jahr am meisten aus? Zeig mir die Kategorien.', bg:'var(--azure-tint)', fg:'var(--azure-deep)', icon:'M3 3v18h18 M7 15l4-4 3 3 5-6'},
+        {label:'USt-Voranmeldung Q2 vorbereiten', prompt:'Bereite meine USt-Voranmeldung für Q2 vor.', bg:'var(--amber-tint)', fg:'var(--amber-deep)', icon:'M4 4h16v5H4z M4 13h16v7H4z'},
+      ];
+      function starterHTML(){
+        let h='<div style="display:flex;flex-direction:column;gap:9px;padding:6px 2px">';
+        for(const s of STARTERS){ h+='<div class="ask-start" data-p="'+esc(s.prompt)+'" style="display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--line-2);border-radius:13px;padding:12px 14px;cursor:pointer">'
+          +'<span style="width:30px;height:30px;border-radius:9px;background:'+s.bg+';color:'+s.fg+';display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="'+s.icon+'"/></svg></span>'
+          +'<span style="flex:1;font-size:14px;font-weight:500">'+esc(s.label)+'</span>'
+          +'<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#C9C6BB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></div>'; }
+        h+='</div>'; return h;
+      }
+      function renderBlock(b){
+        const card=document.createElement('div'); card.className='msg msg--ai'; card.style.cssText='max-width:94%;padding:13px 15px';
+        const money=v=>esc(v||'');
+        if(b.type==='stat'){
+          card.innerHTML='<div style="font-size:12.5px;color:var(--ink-3);font-weight:600">'+esc(b.title||b.subtitle||'')+'</div>'
+            +'<div class="disp num" style="font-weight:700;font-size:26px;margin-top:6px">'+money(b.value)+'</div>'
+            +(b.delta?'<div style="display:inline-flex;margin-top:8px;font-size:12.5px;font-weight:600;color:var(--green-deep);background:var(--green-tint);padding:3px 9px;border-radius:999px">'+esc(b.delta)+'</div>':'');
+        } else if(b.type==='chart_bar'){
+          const bars=b.bars||[]; const mx=Math.max(1,...bars.map(x=>+x.value||0));
+          let inner=(b.subtitle?'<p style="font-size:13.5px;margin:0 0 10px">'+esc(b.subtitle)+'</p>':'')+'<div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:6px">';
+          for(const x of bars){ inner+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">'
+            +'<span class="num" style="font-size:10.5px;color:var(--ink-3)">'+esc(x.amount||'')+'</span>'
+            +'<div style="width:100%;background:var(--accent);border-radius:5px 5px 0 0;height:'+Math.round((+x.value||0)/mx*100)+'%;min-height:2px"></div>'
+            +'<span style="font-size:11px;color:var(--ink-3);font-weight:500">'+esc(x.label||'')+'</span></div>'; }
+          inner+='</div>'; card.innerHTML=inner;
+        } else if(b.type==='chart_donut'){
+          const segs=b.segments||[]; const tot=segs.reduce((a,s)=>a+(+s.value||0),0)||1; let acc=0, stops=[];
+          segs.forEach((s,i)=>{ const c=PALETTE[i%PALETTE.length]; const f=(+s.value||0)/tot; stops.push(c+' '+(acc*100).toFixed(2)+'% '+((acc+f)*100).toFixed(2)+'%'); acc+=f; });
+          let leg=''; segs.forEach((s,i)=>{ leg+='<div style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:3px;background:'+PALETTE[i%PALETTE.length]+';flex-shrink:0"></span><span style="flex:1;font-size:12.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s.name||'')+'</span><span class="num" style="font-size:12px;color:var(--ink-2)">'+esc(s.amount||'')+'</span></div>'; });
+          card.innerHTML=(b.subtitle?'<p style="font-size:13.5px;margin:0 0 12px">'+esc(b.subtitle)+'</p>':'')
+            +'<div style="display:flex;align-items:center;gap:16px"><div style="width:96px;height:96px;border-radius:50%;flex-shrink:0;background:conic-gradient('+stops.join(',')+');position:relative"><div style="position:absolute;inset:16px;background:var(--surface);border-radius:50%;display:flex;align-items:center;justify-content:center"><span class="num" style="font-size:12.5px;font-weight:700">'+money(b.total)+'</span></div></div>'
+            +'<div style="flex:1;display:flex;flex-direction:column;gap:7px">'+leg+'</div></div>';
+        } else if(b.type==='list'){
+          let inner=(b.subtitle?'<p style="font-size:13.5px;margin:0 0 10px">'+esc(b.subtitle)+'</p>':(b.title?'<p style="font-size:13.5px;font-weight:600;margin:0 0 8px">'+esc(b.title)+'</p>':''));
+          for(const it of (b.items||[])){ inner+='<div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-top:1px solid var(--line-3)">'
+            +'<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(it.title||'')+'</div>'+(it.sub?'<div style="font-size:11.5px;color:var(--ink-3)">'+esc(it.sub)+'</div>':'')+'</div>'
+            +(it.status?'<span class="status status--due" style="font-size:11px">'+esc(it.status)+'</span>':'')
+            +(it.amount?'<span class="num" style="font-size:13.5px;font-weight:600">'+esc(it.amount)+'</span>':'')+'</div>'; }
+          card.innerHTML=inner;
+        } else if(b.type==='passkey'){
+          // Passkey-Maske statt roher approval_url. Button öffnet die Bridge im
+          // Popup, danach wird das *_result-Tool gepollt, bis signiert wurde.
+          card.innerHTML='<div style="display:flex;align-items:center;gap:11px;margin-bottom:10px">'
+            +'<span style="width:38px;height:38px;border-radius:11px;background:var(--accent-tint);color:var(--accent-deep);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z"/><path d="m9 12 2 2 4-4"/></svg></span>'
+            +'<div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:600">'+esc(b.title||'Mit Passkey bestätigen')+'</div>'
+            +'<div style="font-size:12px;color:var(--ink-2);line-height:1.45">'+esc(b.subtitle||'')+'</div></div></div>'
+            +'<div class="pk-row"><button class="btn btn--primary btn--sm pk-go" style="width:100%">Mit Passkey bestätigen</button></div>';
+          const row=card.querySelector('.pk-row');
+          const okMark='<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+          // KEIN Auto-Poll: der Nutzer sagt selbst, wann er den Tap gemacht hat.
+          card.querySelector('.pk-go').onclick=()=>{
+            window.open(b.url, 'nuri-passkey', 'width=460,height=680');
+            if(!b.result_tool){ row.innerHTML='<span class="muted" style="font-size:12.5px">Fenster geöffnet.</span>'; return; }
+            row.innerHTML='<p style="font-size:12.5px;color:var(--ink-2);margin:0 0 9px">Signiere im Fenster – danach hier bestätigen.</p>'
+              +'<div style="display:flex;gap:8px"><button class="btn btn--primary btn--sm pk-done" style="flex:1">Ich habe bestätigt</button>'
+              +'<button class="btn btn--outline btn--sm pk-again">Erneut öffnen</button></div>';
+            row.querySelector('.pk-again').onclick=()=>window.open(b.url,'nuri-passkey','width=460,height=680');
+            row.querySelector('.pk-done').onclick=async(ev)=>{
+              const btn=ev.currentTarget; btn.disabled=true; btn.textContent='Prüfe…';
+              let d; try{ d=await (await fetch('/banking/passkey/result',{method:'POST',
+                headers:{'Content-Type':'application/json'},
+                body:JSON.stringify({tool:b.result_tool,session_id:b.session_id})})).json(); }
+              catch(e){ d={pending:true}; }
+              if(d.ok){
+                row.innerHTML='<span style="font-size:12.5px;font-weight:600;color:var(--accent-deep);display:inline-flex;align-items:center;gap:7px">'+okMark+'Bestätigt</span>';
+                sendText(d.summary||'Passkey bestätigt.');
+              }else{
+                btn.disabled=false; btn.textContent='Nochmal prüfen';
+                let w=row.querySelector('.pk-warn');
+                if(!w){ w=document.createElement('div'); w.className='pk-warn';
+                  w.style.cssText='font-size:12px;color:var(--amber-deep);margin-top:8px'; row.appendChild(w); }
+                const detail=d.error?d.error.slice(0,90):(d.status?'Wirex-Status: '+d.status:'noch keine Signatur');
+                w.textContent='Noch nicht bestätigt ('+detail+').';
+              }
+            };
+          };
+        } else if(b.type==='confirm_action'){
+          let fields=''; for(const f of (b.fields||[])){ fields+='<div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-2)"><span>'+esc(f.label||'')+'</span><span class="num" style="color:var(--ink)">'+esc(f.value||'')+'</span></div>'; }
+          card.innerHTML='<div style="font-size:13.5px;font-weight:600;margin-bottom:'+(fields?'10px':'12px')+'">'+esc(b.title||'Bestätigen?')+'</div>'
+            +(b.subtitle?'<p style="margin:0 0 12px;font-size:12.5px;color:var(--ink-2);line-height:1.5">'+esc(b.subtitle)+'</p>':'')
+            +(fields?'<div style="border:1px solid var(--line-2);border-radius:12px;padding:12px 13px;margin-bottom:12px;display:flex;flex-direction:column;gap:6px">'+fields+'</div>':'')
+            +'<div class="ask-confirm-row" style="display:flex;gap:8px"><button class="btn btn--primary btn--sm ask-confirm" style="flex:1">'+esc(b.confirm_label||'Bestätigen')+'</button><button class="btn btn--outline btn--sm ask-cancel">Abbrechen</button></div>';
+          const row=card.querySelector('.ask-confirm-row');
+          card.querySelector('.ask-confirm').onclick=()=>{ row.innerHTML='<span class="muted" style="font-size:12.5px">Bestätigt…</span>'; sendText(b.confirm_message||'Ja, bitte ausführen.'); };
+          card.querySelector('.ask-cancel').onclick=()=>{ row.innerHTML='<span class="muted" style="font-size:12.5px">Abgebrochen.</span>'; };
+        } else if(b.type==='invoice_form'){
+          const iv=b.invoice||{};
+          const kind=iv.kind||'domestic'; const reverse=(kind==='eu'||kind==='third');
+          const rate=reverse?0:(iv.vat_rate!=null?+iv.vat_rate:19);
+          const istyle="width:100%;font:400 14px 'Instrument Sans';color:var(--ink);padding:10px 12px;border-radius:11px;border:1.5px solid var(--field-border);background:var(--surface);outline:none";
+          const lstyle="font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-3);margin-bottom:5px;display:block";
+          card.innerHTML='<p style="font-size:14px;line-height:1.5;margin:0 0 12px">Klar — ein paar Angaben, dann erstelle ich sie.</p>'
+            +'<div style="display:flex;flex-direction:column;gap:12px">'
+            +'<div style="position:relative"><span style="'+lstyle+'">Empfänger</span><input class="ivf-cust" autocomplete="off" placeholder="Kunde wählen oder eingeben" value="'+esc(iv.customer_name||'')+'" style="'+istyle+'"><div class="ivf-panel" style="display:none;position:absolute;left:0;right:0;top:calc(100% + 6px);z-index:20;background:var(--surface);border:1px solid var(--line-2);border-radius:12px;box-shadow:0 14px 34px -14px rgba(20,18,10,.3);max-height:210px;overflow:auto;padding:5px"></div></div>'
+            +'<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">'
+            +'<div><span style="'+lstyle+'">Betrag (netto)</span><input class="ivf-amt num" inputmode="decimal" placeholder="0,00" value="'+esc(iv.amount!=null?String(iv.amount).replace(".",","):"")+'" style="'+istyle+'"></div>'
+            +'<div><span style="'+lstyle+'">Zahlungsziel</span><select class="ivf-term" style="'+istyle+'"><option value="14">Netto 14</option><option value="30">Netto 30</option><option value="7">Netto 7</option></select></div>'
+            +'</div>'
+            +'<div><span style="'+lstyle+'">Leistung</span><input class="ivf-svc" placeholder="Leistungsbeschreibung" value="'+esc(iv.service||'')+'" style="'+istyle+'"></div>'
+            +'<div class="ivf-brk" style="font-size:12px;color:var(--ink-3);min-height:16px"></div>'
+            +'<label style="display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--ink-3);cursor:pointer"><input type="checkbox" class="ivf-nosave" style="width:15px;height:15px;accent-color:var(--ink)">Empfänger nicht ins Kundenregister aufnehmen</label>'
+            +'</div>'
+            +'<div style="display:flex;gap:8px;margin-top:14px"><button class="btn btn--primary btn--sm ivf-create" style="flex:1">Rechnung erstellen</button></div>';
+          const custInp=card.querySelector('.ivf-cust'), amtInp=card.querySelector('.ivf-amt'),
+                termSel=card.querySelector('.ivf-term'), svcInp=card.querySelector('.ivf-svc'),
+                brk=card.querySelector('.ivf-brk'), btn=card.querySelector('.ivf-create'),
+                panel=card.querySelector('.ivf-panel');
+          if(iv.term_days) termSel.value=String(iv.term_days);
+          let custMap={}, custs=[];
+          function renderCustList(){
+            const q=(custInp.value||'').trim().toLowerCase();
+            const list=custs.filter(c=>!q || c.name.toLowerCase().includes(q));
+            if(!list.length){ panel.style.display='none'; return; }
+            panel.innerHTML=list.map(c=>'<div class="ivf-opt" data-name="'+esc(c.name)+'" style="display:flex;align-items:center;gap:9px;padding:9px 10px;border-radius:9px;cursor:pointer;font-size:13.5px">'
+              +'<span style="width:24px;height:24px;border-radius:7px;background:var(--green-tint);color:var(--green-deep);display:flex;align-items:center;justify-content:center;font:700 10px \'Space Grotesk\';flex-shrink:0">'+esc(c.initials||'?')+'</span>'
+              +'<span style="flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(c.name)+'</span></div>').join('');
+            panel.querySelectorAll('.ivf-opt').forEach(el=>{
+              el.onmouseenter=()=>el.style.background='var(--wash)'; el.onmouseleave=()=>el.style.background='transparent';
+              el.onmousedown=e=>{ e.preventDefault(); custInp.value=el.dataset.name; panel.style.display='none'; custInp.style.borderColor='var(--field-border)'; };
+            });
+            panel.style.display='block';
+          }
+          custInp.addEventListener('focus',renderCustList);
+          custInp.addEventListener('input',renderCustList);
+          custInp.addEventListener('blur',()=>setTimeout(()=>{ panel.style.display='none'; },150));
+          fetch('{{ url_for("chat_api_customers") }}').then(r=>r.json()).then(d=>{
+            custs=d.customers||[]; custs.forEach(c=>{ custMap[c.name]=c; });
+          }).catch(()=>{});
+          const parseAmt=()=>parseFloat((amtInp.value||'').replace(/\./g,'').replace(',','.'))||0;
+          const upd=()=>{ const net=parseAmt(); if(net<=0){ brk.textContent=''; return; }
+            const vat=net*rate/100, gross=net+vat;
+            const f=x=>'€'+x.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+            brk.textContent=reverse?('Reverse-Charge · Brutto '+f(net)):('+ USt '+rate+'% '+f(vat)+' · Brutto '+f(gross)); };
+          amtInp.addEventListener('input',upd); upd();
+          btn.onclick=async()=>{ if(busy)return; const name=(custInp.value||'').trim(); const g=parseAmt();
+            if(!name){ custInp.focus(); custInp.style.borderColor='var(--coral)'; return; }
+            if(g<=0){ amtInp.focus(); amtInp.style.borderColor='var(--coral)'; return; }
+            busy=true; btn.disabled=true; btn.textContent='Erstelle…';
+            const c=custMap[name]||{};
+            try{ const d=await (await fetch('{{ url_for("chat_api_invoice") }}',{method:'POST',headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({customer_id:c.id||null, customer_name:name, address:c.address||'', vat_id:c.vat_id||'',
+                no_save:card.querySelector('.ivf-nosave').checked,
+                amount:g, term_days:+termSel.value, service:svcInp.value.trim()||'Leistung', kind:kind, vat_rate:rate})})).json();
+              if(d.error){ btn.disabled=false; btn.textContent='Rechnung erstellen'; brk.textContent=d.error; brk.style.color='var(--coral)'; }
+              else render(d.messages); }
+            catch(err){ btn.disabled=false; btn.textContent='Rechnung erstellen'; }
+            finally{ busy=false; } };
+        } else if(b.type==='invoice_created'){
+          card.innerHTML='<p style="font-size:14px;line-height:1.5;margin:0 0 12px">Rechnung <strong>'+esc(b.number||'')+'</strong> ist bereit. Direkt senden?</p>'
+            +'<div style="border:1px solid var(--line-2);border-radius:12px;padding:13px 14px">'
+            +'<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px"><span style="font-size:13px;font-weight:600">'+esc(b.customer_name||'')+'</span><span class="num" style="font-size:15px;font-weight:600">'+esc(b.amount||'')+'</span></div>'
+            +'<div style="display:flex;justify-content:space-between;font-size:12.5px;color:var(--ink-2)"><span>Fällig</span><span class="num">'+esc(b.due||'')+'</span></div>'
+            +'</div>'
+            +'<div style="display:flex;gap:8px;margin-top:12px">'
+            +'<button class="btn btn--primary btn--sm inv-send-btn" style="flex:1">Jetzt senden</button>'
+            +(b.pdf?'<button class="btn btn--outline btn--sm ivf-pdf">PDF</button>':'')
+            +'</div>';
+          if(b.pdf) card.querySelector('.ivf-pdf').onclick=()=>window.open(b.pdf,'_blank');
+          card.querySelector('.inv-send-btn').onclick=()=>openInvoiceSend(b.number);
+        } else if(b.type==='invoice_sent'){
+          card.innerHTML='<div style="display:flex;align-items:center;gap:11px"><span style="width:34px;height:34px;border-radius:10px;background:var(--green-tint);color:var(--green-deep);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span>'
+            +'<div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:600">Gesendet an '+esc(b.customer_name||'')+'</div><div style="font-size:12.5px;color:var(--ink-3)">'+esc(b.number||'')+(b.to?' · '+esc(b.to):'')+' · Status „Versendet"</div></div></div>';
+        } else if(b.type==='kpi'){
+          const sp=(b.spark||[]).map(Number).filter(x=>!isNaN(x));
+          let svg='';
+          if(sp.length>1){ const mn=Math.min(...sp), mx=Math.max(...sp), rng=(mx-mn)||1;
+            const W=150,H=48; const pts=sp.map((v,i)=>(i/(sp.length-1)*W).toFixed(1)+','+(H-((v-mn)/rng)*(H-6)-3).toFixed(1)).join(' ');
+            svg='<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" preserveAspectRatio="none" style="flex-shrink:0"><polyline points="'+pts+'" fill="none" stroke="var(--accent)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>'; }
+          card.innerHTML=(b.subtitle?'<p style="font-size:13.5px;line-height:1.5;margin:0 0 12px">'+md(b.subtitle)+'</p>':'')
+            +'<div style="display:flex;align-items:flex-end;justify-content:space-between;gap:14px"><div>'
+            +'<div class="disp num" style="font-weight:700;font-size:28px">'+esc(b.value||'')+'</div>'
+            +(b.delta?'<div style="display:inline-flex;align-items:center;gap:4px;margin-top:6px;font-size:12.5px;font-weight:600;color:var(--green-deep);background:var(--green-tint);padding:3px 9px;border-radius:999px">'+esc(b.delta)+'</div>':'')
+            +'</div>'+svg+'</div>';
+        } else if(b.type==='compare'){
+          const L=b.left||{}, R=b.right||{};
+          card.innerHTML=(b.subtitle?'<p style="font-size:13.5px;margin:0 0 12px">'+esc(b.subtitle)+'</p>':'')
+            +'<div style="display:flex;gap:10px">'
+            +'<div style="flex:1;background:var(--wash);border:1px solid var(--line-2);border-radius:11px;padding:12px"><div style="font-size:12.5px;color:var(--ink-3);margin-bottom:4px">'+esc(L.label||'')+'</div><div class="num" style="font-weight:700;font-size:19px">'+esc(L.value||'')+'</div></div>'
+            +'<div style="flex:1;background:var(--accent-tint,var(--green-tint));border-radius:11px;padding:12px"><div style="font-size:12.5px;color:var(--accent-deep,var(--green-deep));margin-bottom:4px;font-weight:600">'+esc(R.label||'')+'</div><div class="num" style="font-weight:700;font-size:19px;color:var(--accent-deep,var(--green-deep))">'+esc(R.value||'')+'</div></div>'
+            +'</div>';
+        } else if(b.type==='choice'){
+          const opts=b.options||[]; let sel=0;
+          let inner=(b.subtitle?'<p style="font-size:14px;line-height:1.5;margin:0 0 12px">'+esc(b.subtitle)+'</p>':'')+'<div style="display:flex;flex-direction:column;gap:9px">';
+          opts.forEach((o,i)=>{ inner+='<div class="ask-opt" data-i="'+i+'" style="display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:12px;cursor:pointer;border:2px solid var(--line-2);background:var(--surface)">'
+            +'<span class="ask-opt-ring" style="width:18px;height:18px;border-radius:50%;border:2px solid var(--field-border);display:flex;align-items:center;justify-content:center;flex-shrink:0"><span class="ask-opt-dot" style="width:9px;height:9px;border-radius:50%;background:transparent"></span></span>'
+            +'<div><div style="font-size:13.5px;font-weight:600">'+esc(o.title||'')+'</div>'+(o.sub?'<div style="font-size:12px;color:var(--ink-3)">'+esc(o.sub)+'</div>':'')+'</div></div>'; });
+          inner+='</div><button class="btn btn--primary btn--sm ask-choice-go" style="width:100%;margin-top:12px">'+esc(b.confirm_label||'Weiter')+'</button>';
+          card.innerHTML=inner;
+          const paint=()=>card.querySelectorAll('.ask-opt').forEach((el,i)=>{ const on=i===sel;
+            el.style.borderColor=on?'var(--ink)':'var(--line-2)'; el.style.background=on?'var(--wash)':'var(--surface)';
+            el.querySelector('.ask-opt-ring').style.borderColor=on?'var(--ink)':'var(--field-border)';
+            el.querySelector('.ask-opt-dot').style.background=on?'var(--ink)':'transparent'; });
+          card.querySelectorAll('.ask-opt').forEach(el=>el.onclick=()=>{ sel=+el.dataset.i; paint(); }); paint();
+          card.querySelector('.ask-choice-go').onclick=()=>{ const o=opts[sel]||{}; sendText(o.message||o.title||'Weiter'); };
+        } else if(b.type==='doc_card'){
+          let fields=''; for(const f of (b.fields||[])){ fields+='<div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink-3)">'+esc(f.label||'')+'</span><span class="num" style="font-weight:600">'+esc(f.value||'')+'</span></div>'; }
+          const thumb='<div style="width:64px;height:82px;border-radius:8px;border:1px solid var(--line-2);background:var(--wash);flex-shrink:0;display:flex;flex-direction:column;gap:4px;padding:9px"><div style="height:6px;width:70%;background:var(--field-border);border-radius:2px"></div><div style="height:5px;width:90%;background:var(--line-2);border-radius:2px"></div><div style="height:5px;width:60%;background:var(--line-2);border-radius:2px"></div><div style="margin-top:auto;height:9px;width:50%;background:var(--field-border);border-radius:2px"></div></div>';
+          let inner=(b.subtitle?'<p style="font-size:14px;line-height:1.5;margin:0 0 12px">'+esc(b.subtitle)+'</p>':(b.title?'<p style="font-size:14px;line-height:1.5;margin:0 0 12px">'+esc(b.title)+'</p>':''))
+            +'<div style="display:flex;gap:12px"><div>'+thumb+'</div><div style="flex:1;display:flex;flex-direction:column;gap:7px">'+fields+'</div></div>'
+            +'<div class="doc-details" style="display:none;border-top:1px solid var(--line-3);margin-top:11px;padding-top:11px;flex-direction:column;gap:7px">'+
+              (b.details||[]).map(f=>'<div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink-3)">'+esc(f.label||'')+'</span><span class="num">'+esc(f.value||'')+'</span></div>').join('')+'</div>'
+            +'<div class="doc-row" style="display:flex;gap:8px;margin-top:13px"><button class="btn btn--primary btn--sm doc-book" style="flex:1">'+esc(b.confirm_label||'Zuordnen & buchen')+'</button>'
+            +((b.details&&b.details.length)?'<button class="btn btn--outline btn--sm doc-more">Details</button>':'')+'</div>';
+          card.innerHTML=inner;
+          const more=card.querySelector('.doc-more'), det=card.querySelector('.doc-details'), row=card.querySelector('.doc-row');
+          if(more) more.onclick=()=>{ const open=det.style.display!=='none'; det.style.display=open?'none':'flex'; more.textContent=open?'Details':'Weniger'; };
+          card.querySelector('.doc-book').onclick=()=>{ row.innerHTML='<span class="muted" style="font-size:12.5px">Wird gebucht…</span>'; sendText(b.confirm_message||'Ja, bitte zuordnen und buchen.'); };
+        } else { card.textContent=JSON.stringify(b); }
+        if(b.link && b.link.href){ const a=document.createElement('button'); a.className='btn btn--outline btn--sm';
+          a.style.cssText='margin-top:12px;width:100%;justify-content:center'; a.textContent=(b.link.label||'Vollständig ansehen')+' →';
+          a.onclick=()=>{ location.href=b.link.href; }; card.appendChild(a); }
+        return card;
+      }
+      function render(msgs){ const L=log();
+        if(!msgs||!msgs.length){ L.innerHTML='<div style="margin:auto;width:100%"><div class="muted" style="text-align:center;font-size:13px;margin-bottom:12px">Frag mich etwas oder zieh einen Beleg hierher.</div>'+starterHTML()+'</div>';
+          L.querySelectorAll('.ask-start').forEach(el=>el.onclick=()=>sendText(el.dataset.p)); L.scrollTop=L.scrollHeight; return; }
+        L.innerHTML='';
+        for(const m of msgs){
+          if(m.role==='tool'){ const d=document.createElement('div'); d.className='muted'; d.style.cssText='font-size:12px;align-self:flex-start'; d.textContent='· '+m.text; L.appendChild(d); continue; }
+          if(m.role==='assistant'){ if(m.text){ const d=document.createElement('div'); d.className='msg msg--ai'; d.innerHTML=md(m.text); L.appendChild(d); }
+            for(const b of (m.blocks||[])) L.appendChild(renderBlock(b)); continue; }
+          const d=document.createElement('div'); d.className='msg msg--user'; d.textContent=m.text; L.appendChild(d);
+        }
+        L.scrollTop=L.scrollHeight;
+      }
+      async function sendText(t){ if(!t||busy)return; busy=true; append('user',t); append('ai','…');
+        try{ const d=await (await fetch('{{ url_for("chat_api_send") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t})})).json(); render(d.messages); }
+        catch(err){} finally{ busy=false; input().focus(); } }
+      window.askSend=sendText;
+      function append(role,t){ const L=log(); const e=L.querySelector('.muted'); if(e&&e.parentElement===L&&!e.textContent.startsWith('·'))e.remove();
+        const d=document.createElement('div'); d.className='msg '+(role==='user'?'msg--user':'msg--ai');
+        if(role!=='user' && (t==='…' || /^…/.test(t))){ const lab=t.replace(/^…\s*/,'').replace(/\s*…$/,'').trim();
+          d.style.cssText='align-self:flex-start'; d.innerHTML='<span class="ask-typing"><span></span><span></span><span></span></span>'+(lab?'<span style="margin-left:9px;font-size:13px;color:var(--ink-3)">'+esc(lab)+'</span>':''); }
+        else d.textContent=t;
+        L.appendChild(d); L.scrollTop=L.scrollHeight; return d; }
+      function fsize(b){ return b<1024?b+' B':(b<1048576?(b/1024).toFixed(0)+' KB':(b/1048576).toFixed(1)+' MB'); }
+      window.askSetFile=function(f){ pending=f; const ext=(f.name.split('.').pop()||'').toUpperCase();
+        const badge=document.getElementById('ask-chip-badge');
+        const isImg=/(JPG|JPEG|PNG|GIF)/.test(ext), isCsv=ext==='CSV';
+        badge.textContent = ext.slice(0,3);
+        badge.style.background = isCsv?'var(--azure-tint)':(isImg?'var(--azure-tint)':'var(--coral-tint)');
+        badge.style.color = isCsv?'var(--azure-deep)':(isImg?'var(--azure-deep)':'var(--coral-deep)');
+        document.getElementById('ask-chip-name').textContent=f.name;
+        document.getElementById('ask-chip-size').textContent=fsize(f.size);
+        document.getElementById('ask-chip').style.display='flex'; input().focus(); };
+      window.askClearFile=function(){ pending=null; document.getElementById('ask-chip').style.display='none'; document.getElementById('ask-file').value=''; };
+      async function loadHist(){ if(loaded)return; loaded=true; try{ const d=await (await fetch('{{ url_for("chat_api") }}')).json(); document.getElementById('ask-warn').hidden=!!d.configured; render(d.messages); }catch(e){loaded=false;} }
+      window.askRefresh=async function(){ try{ const d=await (await fetch('{{ url_for("chat_api") }}')).json(); loaded=true; render(d.messages); }catch(e){} };
+      window.toggleAsk=function(){ const dk=document.getElementById('ask-dock'); dk.hidden=!dk.hidden; try{localStorage.setItem('ask-open', dk.hidden?'0':'1');}catch(e){} if(!dk.hidden){ loadHist(); setTimeout(()=>input().focus(),40); } };
+      window.askReset=async function(){ await fetch('{{ url_for("chat_api_reset") }}',{method:'POST'}); render([]); askClearFile(); input().focus(); };
+      // Chat aus einer Seite heraus öffnen und direkt etwas fragen. Der Verlauf muss
+      // FERTIG geladen sein, bevor gesendet wird — sonst überschreibt das render()
+      // aus loadHist() die gerade angehängte Nutzer-Bubble wieder.
+      window.askWith=async function(text){ const dk=document.getElementById('ask-dock');
+        if(dk.hidden){ await loadHist(); toggleAsk(); } sendText(text); };
+      document.getElementById('ask-file').addEventListener('change', function(){ const f=this.files&&this.files[0]; if(f) askSetFile(f); });
+      document.getElementById('ask-form').addEventListener('submit', async e=>{ e.preventDefault(); if(busy)return;
+        const t=input().value.trim();
+        if(pending){ busy=true; const f=pending; append('user','Beleg: '+f.name+(t?' · '+t:'')); append('ai','… analysiere …'); askClearFile(); input().value='';
+          try{ const fd=new FormData(); fd.append('file',f); if(t)fd.append('message',t); const d=await (await fetch('{{ url_for("chat_api_upload") }}',{method:'POST',body:fd})).json(); render(d.messages); }
+          catch(err){} finally{ busy=false; input().focus(); } return; }
+        if(!t)return; input().value=''; sendText(t); });
+      // Drag & Drop aufs Panel — Overlay NUR während eine Datei übers Panel gezogen wird
+      const dock=document.getElementById('ask-dock'), drop=document.getElementById('ask-drop');
+      const showDrop=b=>{ drop.style.display = b ? 'flex' : 'none'; };
+      function overDock(e){ const r=dock.getBoundingClientRect(); return e.clientX>=r.left&&e.clientX<=r.right&&e.clientY>=r.top&&e.clientY<=r.bottom; }
+      function hasFiles(e){ return e.dataTransfer && Array.prototype.indexOf.call(e.dataTransfer.types||[], 'Files')>=0; }
+      window.addEventListener('dragover', e=>{ if(dock.hidden||!hasFiles(e)){ showDrop(false); return; } e.preventDefault(); showDrop(overDock(e)); });
+      window.addEventListener('drop', e=>{ if(dock.hidden){ return; } const over=overDock(e); showDrop(false);
+        if(over){ e.preventDefault(); const f=e.dataTransfer.files&&e.dataTransfer.files[0]; if(f) askSetFile(f); } });
+      window.addEventListener('dragleave', e=>{ if(!e.relatedTarget) showDrop(false); });
+      window.addEventListener('dragend', ()=>showDrop(false));
+      try{ if(localStorage.getItem('ask-open')==='1'){ const dk=document.getElementById('ask-dock'); dk.hidden=false; loadHist(); } }catch(e){}
+    })();
+  </script>
+
+  {# ── Command Palette (⌘K) ── #}
+  <div id="cmdk" class="scrim" hidden style="align-items:flex-start;padding-top:14vh">
+    <div class="modal" style="width:min(560px,94vw);overflow:visible">
+      <div style="padding:14px 18px;border-bottom:1px solid var(--line-3);display:flex;align-items:center;gap:10px">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+        <input id="cmdk-input" oninput="cmdkFilter()" onkeydown="cmdkKey(event)" placeholder="Suchen oder Befehl…" style="flex:1;border:none;outline:none;font:400 15px var(--font-ui);background:transparent;color:var(--ink)">
+        <span class="muted" style="font-size:11px;border:1px solid var(--line-2);border-radius:6px;padding:2px 6px">Esc</span>
+      </div>
+      <div id="cmdk-list" style="max-height:52vh;overflow:auto;padding:8px"></div>
+    </div>
+  </div>
+  <script>
+    const CMDK_ITEMS = [
+      {g:'Gehe zu', t:'Overview', u:'{{ url_for("dashboard") }}'},
+      {g:'Gehe zu', t:'Zahlungen', u:'{{ url_for("zahlungen") }}'},
+      {g:'Gehe zu', t:'Rechnungen', u:'{{ url_for("invoices") }}'},
+      {g:'Gehe zu', t:'Kunden', u:'{{ url_for("invoices", tab="customers") }}'},
+      {g:'Gehe zu', t:'Dokumente', u:'{{ url_for("files") }}'},
+      {g:'Gehe zu', t:'Berichte', u:'{{ url_for("reports") }}'},
+      {g:'Gehe zu', t:'Assistant', u:'{{ url_for("chat") }}'},
+      {g:'Gehe zu', t:'Einstellungen', u:'{{ url_for("settings") }}'},
+      {g:'Gehe zu', t:'Terminal', u:'{{ url_for("terminal") }}'},
+      {g:'Aktion', t:'Neue Rechnung', u:'{{ url_for("invoice_new") }}'},
+      {g:'Aktion', t:'CSV importieren', u:'{{ url_for("import_csv") }}'},
+    ];
+    let cmdkIdx = 0, cmdkShown = [];
+    function cmdkRender(){
+      const list=document.getElementById('cmdk-list'); list.innerHTML='';
+      let g=null;
+      cmdkShown.forEach((it,i)=>{
+        if(it.g!==g){ g=it.g; const h=document.createElement('div'); h.className='overline'; h.style.cssText='padding:8px 10px 4px'; h.textContent=g; list.appendChild(h); }
+        const r=document.createElement('div'); r.className='cmdk-row'; r.style.cssText='display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:9px;cursor:pointer;font-size:14px'+(i===cmdkIdx?';background:var(--accent-tint);color:var(--accent-deep);font-weight:600':'');
+        r.textContent=it.t; r.onclick=()=>location.href=it.u; r.onmouseenter=()=>{cmdkIdx=i;cmdkRender();};
+        list.appendChild(r);
+      });
+    }
+    function cmdkFilter(){ const q=(document.getElementById('cmdk-input').value||'').toLowerCase();
+      cmdkShown = CMDK_ITEMS.filter(it=>it.t.toLowerCase().includes(q)); cmdkIdx=0; cmdkRender(); }
+    function cmdkKey(e){ if(e.key==='ArrowDown'){e.preventDefault();cmdkIdx=Math.min(cmdkIdx+1,cmdkShown.length-1);cmdkRender();}
+      else if(e.key==='ArrowUp'){e.preventDefault();cmdkIdx=Math.max(cmdkIdx-1,0);cmdkRender();}
+      else if(e.key==='Enter'){e.preventDefault(); if(cmdkShown[cmdkIdx])location.href=cmdkShown[cmdkIdx].u;} }
+    document.addEventListener('keydown', e=>{ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){ e.preventDefault();
+      openModal('cmdk'); cmdkFilter(); setTimeout(()=>document.getElementById('cmdk-input').focus(),30); } });
+    function openModal(id){ const m=document.getElementById(id); if(m){ m.hidden=false; document.body.style.overflow='hidden'; } }
+    function closeModal(id){ const m=document.getElementById(id); if(m){ m.hidden=true; document.body.style.overflow=''; } }
+    document.addEventListener('keydown', e => { if(e.key==='Escape') document.querySelectorAll('.scrim:not([hidden])').forEach(m=>closeModal(m.id)); });
+    document.addEventListener('click', e => { const s=e.target.closest('.scrim'); if(s && e.target===s) closeModal(s.id); });
+
+    // ── Custom-Dropdown: upgradet jedes <select> in ein Klar-Dropdown ──
+    function klarEnhanceSelects(root){
+      (root||document).querySelectorAll('select:not([data-enh])').forEach(sel=>{
+        sel.dataset.enh='1';
+        const auto = sel.style.width==='auto';
+        const wrap=document.createElement('div'); wrap.className='kls';
+        wrap.style.width = auto ? 'auto' : (sel.style.width || '100%');
+        wrap.style.display = auto ? 'inline-block' : 'block';
+        sel.parentNode.insertBefore(wrap, sel); wrap.appendChild(sel); sel.style.display='none';
+        const trig=document.createElement('div'); trig.className='kls-trigger'; trig.tabIndex=0;
+        if(sel.style.cssText){ ['fontFamily','fontSize','fontWeight','color'].forEach(p=>{ if(sel.style[p]) trig.style[p]=sel.style[p]; }); }
+        const lbl=document.createElement('span'); lbl.className='kls-label'; trig.appendChild(lbl);
+        trig.insertAdjacentHTML('beforeend','<svg class="kls-chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>');
+        const panel=document.createElement('div'); panel.className='kls-panel'; panel.hidden=true;
+        // Panel an <body> hängen, damit position:fixed nicht an einem transformierten/
+        // overflow-Container (Bulk-Leiste, Modal) klebt und daneben rutscht.
+        wrap.appendChild(trig); document.body.appendChild(panel);
+        const CHK='<svg class="kls-check" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>';
+        const many = sel.options.length > 8;                 // Suchfeld nur bei langen Listen
+        const swrap=document.createElement('div'); swrap.className='kls-searchwrap'; if(!many) swrap.style.display='none';
+        const search=document.createElement('input'); search.className='kls-search'; search.type='text'; search.placeholder='Suchen…'; search.autocomplete='off';
+        swrap.appendChild(search); panel.appendChild(swrap);
+        const list=document.createElement('div'); list.className='kls-list'; panel.appendChild(list);
+        function renderList(){ const q=(search.value||'').trim().toLowerCase(); list.innerHTML='';
+          [...sel.options].forEach((op,i)=>{ if(q && op.text.toLowerCase().indexOf(q)<0) return;
+            const on=i===sel.selectedIndex; const it=document.createElement('div'); it.className='kls-opt'+(on?' on':'');
+            it.innerHTML='<span>'+op.text.replace(/</g,'&lt;')+'</span>'+(on?CHK:'');
+            it.onclick=()=>{ sel.selectedIndex=i; sel.dispatchEvent(new Event('change',{bubbles:true})); render(); close(); };
+            list.appendChild(it); });
+          if(!list.children.length) list.innerHTML='<div class="kls-empty">Nichts gefunden</div>'; }
+        function render(){ const o=sel.options[sel.selectedIndex]; lbl.textContent=o?o.text:''; }
+        search.addEventListener('input', renderList);
+        search.addEventListener('keydown', e=>{ if(e.key==='Enter'){ e.preventDefault(); const first=list.querySelector('.kls-opt'); if(first) first.click(); }
+          else if(e.key==='Escape'){ close(); trig.focus(); } });
+        function place(){ const r=trig.getBoundingClientRect();
+          panel.style.left=r.left+'px'; panel.style.width=r.width+'px';
+          const gap=6, margin=12;
+          const below=window.innerHeight-r.bottom, above=r.top;
+          if(below<260 && above>below){ panel.style.top=''; panel.style.bottom=(window.innerHeight-r.top+gap)+'px';
+            panel.style.maxHeight=Math.max(160, above-gap-margin)+'px'; }
+          else { panel.style.bottom=''; panel.style.top=(r.bottom+gap)+'px';
+            panel.style.maxHeight=Math.max(160, below-gap-margin)+'px'; } }
+        function open(){ document.querySelectorAll('.kls-panel').forEach(p=>p.hidden=true);
+          document.querySelectorAll('.kls-trigger.open').forEach(t=>t.classList.remove('open'));
+          search.value=''; renderList(); place(); panel.hidden=false; trig.classList.add('open');
+          if(many) requestAnimationFrame(()=>search.focus()); }
+        function close(){ panel.hidden=true; trig.classList.remove('open'); }
+        window.addEventListener('scroll', (e)=>{ if(!panel.hidden && e.target!==panel && !panel.contains(e.target)) close(); }, true);
+        window.addEventListener('resize', ()=>{ if(!panel.hidden) close(); });
+        trig.onclick=()=>{ panel.hidden?open():close(); };
+        trig.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); trig.click(); } };
+        sel.addEventListener('change', render);
+        render();
+      });
+    }
+    window.klarEnhanceSelects = klarEnhanceSelects;
+    document.addEventListener('DOMContentLoaded', ()=>klarEnhanceSelects());
+    document.addEventListener('click', e=>{ if(!e.target.closest('.kls') && !e.target.closest('.kls-panel')){
+      document.querySelectorAll('.kls-panel').forEach(p=>p.hidden=true);
+      document.querySelectorAll('.kls-trigger.open').forEach(t=>t.classList.remove('open')); } });
+
+    // ── Kalender: upgradet input[type=date] in einen Klar-Datepicker ──
+    const KMONTHS=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
+    const kpad=n=>String(n).padStart(2,'0');
+    function klarEnhanceDates(root){
+      (root||document).querySelectorAll('input[type=date]:not([data-enh])').forEach(inp=>{
+        inp.dataset.enh='1';
+        const wrap=document.createElement('div'); wrap.className='kcal'; if(inp.style.width) wrap.style.width=inp.style.width;
+        inp.parentNode.insertBefore(wrap,inp); wrap.appendChild(inp); inp.style.display='none';
+        const field=document.createElement('div'); field.className='kcal-field'; field.tabIndex=0;
+        const panel=document.createElement('div'); panel.className='kcal-panel'; panel.hidden=true;
+        wrap.appendChild(field); wrap.appendChild(panel);
+        let view;
+        function parse(){ const v=inp.value; return (v&&/^\d{4}-\d{2}-\d{2}/.test(v))?new Date(+v.slice(0,4),+v.slice(5,7)-1,+v.slice(8,10)):null; }
+        function renderField(){ const d=parse();
+          field.innerHTML = d
+            ? '<span class="num" style="font-size:16px"><span class="kcal-day">'+kpad(d.getDate())+'</span><span style="color:var(--ink-4)">.</span>'+kpad(d.getMonth()+1)+'.'+d.getFullYear()+'</span>'
+            : '<span class="num" style="font-size:16px;color:var(--ink-4)">'+(inp.getAttribute('placeholder')||'TT.MM.JJJJ')+'</span>'; }
+        function renderCal(){ const {y,m}=view;
+          const CH='<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">';
+          let h='<div class="kcal-head"><span class="disp" style="font-weight:700;font-size:17px">'+KMONTHS[m]+' '+y+'</span><div class="kcal-nav">'
+            +'<button type="button" data-nav="-1">'+CH+'<path d="m15 18-6-6 6-6"/></svg></button>'
+            +'<button type="button" data-nav="today" title="Heute"><span style="width:8px;height:8px;border-radius:50%;background:currentColor"></span></button>'
+            +'<button type="button" data-nav="1">'+CH+'<path d="m9 18 6-6-6-6"/></svg></button></div></div>';
+          h+='<div class="kcal-grid kcal-wd">'+['M','D','M','D','F','S','S'].map(w=>'<span>'+w+'</span>').join('')+'</div>';
+          const first=new Date(y,m,1), startDow=(first.getDay()+6)%7, start=new Date(y,m,1-startDow), sel=parse();
+          let c='';
+          for(let i=0;i<42;i++){ const d=new Date(start); d.setDate(start.getDate()+i);
+            const inM=d.getMonth()===m, isSel=sel&&d.toDateString()===sel.toDateString();
+            c+='<button type="button" class="kcal-db'+(isSel?' sel':'')+(inM?'':' out')+'" data-d="'+d.getFullYear()+'-'+kpad(d.getMonth()+1)+'-'+kpad(d.getDate())+'">'+d.getDate()+'</button>'; }
+          h+='<div class="kcal-grid">'+c+'</div>'; panel.innerHTML=h; }
+        function place(){ const r=field.getBoundingClientRect(); panel.style.left=r.left+'px';
+          const below=window.innerHeight-r.bottom;
+          if(below<360 && r.top>below){ panel.style.top=''; panel.style.bottom=(window.innerHeight-r.top+8)+'px'; }
+          else { panel.style.bottom=''; panel.style.top=(r.bottom+8)+'px'; } }
+        function open(){ document.querySelectorAll('.kcal-panel,.kls-panel').forEach(p=>p.hidden=true);
+          const d=parse()||new Date(); view={y:d.getFullYear(),m:d.getMonth()}; renderCal(); place(); panel.hidden=false; field.classList.add('open'); }
+        function close(){ panel.hidden=true; field.classList.remove('open'); }
+        field.onclick=()=>{ panel.hidden?open():close(); };
+        field.onkeydown=(e)=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); field.click(); } };
+        panel.addEventListener('click',(e)=>{ e.stopPropagation(); const nav=e.target.closest('[data-nav]');
+          if(nav){ const v=nav.dataset.nav; if(v==='today'){ const t=new Date(); view={y:t.getFullYear(),m:t.getMonth()}; }
+            else { let m=view.m+(+v),y=view.y; if(m<0){m=11;y--;} if(m>11){m=0;y++;} view={y,m}; } renderCal(); return; }
+          const db=e.target.closest('[data-d]'); if(db){ inp.value=db.dataset.d; inp.dispatchEvent(new Event('change',{bubbles:true})); renderField(); close(); } });
+        window.addEventListener('scroll',(e)=>{ if(!panel.hidden && e.target!==panel && !panel.contains(e.target)) close(); },true);
+        inp.addEventListener('change',renderField); renderField();
+      });
+    }
+    window.klarEnhanceDates=klarEnhanceDates;
+    document.addEventListener('DOMContentLoaded', ()=>klarEnhanceDates());
+    document.addEventListener('click', e=>{ if(!e.target.closest('.kcal')) document.querySelectorAll('.kcal-panel').forEach(p=>p.hidden=true); });
+  </script>
+  {% block scripts %}{% endblock %}
+  {% include "_docviewer.html" %}
+  {% include "_dialog.html" %}
+</body>
+</html>

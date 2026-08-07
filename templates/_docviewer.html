@@ -1,0 +1,101 @@
+{# Dokumente (PDF/Bild) im App-Fenster zeigen statt im Browser.
+   Wird von base.html und base_klar.html eingebunden. Fängt Klicks auf
+   Beleg-/PDF-Links ab und ersetzt window.open für dieselben URLs. #}
+<style>
+  .dv-scrim{ position:fixed; inset:0; background:rgba(22,23,29,.52); z-index:1200;
+    display:flex; align-items:center; justify-content:center; padding:28px; }
+  .dv-scrim[hidden]{ display:none; }
+  .dv-box{ background:var(--surface); border-radius:var(--r-2xl,16px); box-shadow:var(--shadow-lg,0 24px 60px rgba(0,0,0,.28));
+    width:min(1080px,95vw); height:min(88vh,1000px); display:flex; flex-direction:column; overflow:hidden; }
+  .dv-head{ display:flex; align-items:center; gap:12px; padding:12px 14px 12px 18px;
+    border-bottom:1px solid var(--line,#E9E7DF); }
+  .dv-title{ font-family:var(--font-display,inherit); font-size:15px; font-weight:600; color:var(--ink,#16171D);
+    white-space:nowrap; overflow:hidden; text-overflow:ellipsis; flex:1; }
+  .dv-act{ border:1px solid var(--field-border,#E5E3D9); background:var(--surface,#fff); color:var(--ink-2,#5C5F6E);
+    height:32px; padding:0 12px; border-radius:9px; font:inherit; font-size:13.5px; cursor:pointer;
+    display:inline-flex; align-items:center; gap:6px; text-decoration:none; }
+  .dv-act:hover{ background:var(--wash,#F2F0E9); color:var(--ink,#16171D); }
+  .dv-close{ border:none; background:transparent; color:var(--ink-3,#9599A8); cursor:pointer;
+    padding:6px; border-radius:8px; display:inline-flex; }
+  .dv-close:hover{ background:var(--wash,#F2F0E9); color:var(--ink,#16171D); }
+  .dv-body{ flex:1; background:var(--wash,#F2F0E9); position:relative; }
+  .dv-body iframe, .dv-body img{ width:100%; height:100%; border:0; display:block; }
+  .dv-body img{ object-fit:contain; padding:16px; }
+  .dv-note{ position:absolute; inset:0; display:none; flex-direction:column; align-items:center;
+    justify-content:center; gap:12px; color:var(--ink-2,#5C5F6E); font-size:14px; text-align:center; padding:24px; }
+</style>
+
+<div id="dv" class="dv-scrim" hidden>
+  <div class="dv-box">
+    <div class="dv-head">
+      <span class="dv-title" id="dv-title">Dokument</span>
+      <a class="dv-act" id="dv-ext" href="#" target="_blank" rel="noopener">Im Browser öffnen</a>
+      <button class="dv-close" id="dv-x" aria-label="Schließen">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div class="dv-body" id="dv-body">
+      <div class="dv-note" id="dv-note">Dokument kann nicht angezeigt werden.</div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  // Routen, die eine Datei ausliefern
+  const DOC = /\/(invoices\/\d+\/pdf|expenses\/\d+\/receipt|zahlungen\/tx\/\d+\/receipt|documents\/\d+\/file)(\?|#|$)/;
+  const dv = document.getElementById('dv'), body = document.getElementById('dv-body'),
+        note = document.getElementById('dv-note'), title = document.getElementById('dv-title'),
+        ext = document.getElementById('dv-ext');
+
+  function istDoc(url){
+    if(!url) return false;
+    try{ const u = new URL(url, location.href);
+         return u.origin === location.origin && DOC.test(u.pathname); }
+    catch(e){ return false; }
+  }
+
+  function zeige(url, name){
+    const abs = new URL(url, location.href).href;
+    title.textContent = name || 'Dokument';
+    ext.href = abs;
+    body.querySelectorAll('iframe,img').forEach(n => n.remove());
+    note.style.display = 'none';
+
+    const bild = /\.(png|jpe?g|gif|webp|heic)(\?|#|$)/i.test(abs);
+    const el = document.createElement(bild ? 'img' : 'iframe');
+    el.src = abs;
+    if(!bild){ el.setAttribute('title', name || 'Dokument'); }
+    el.onerror = () => { note.style.display = 'flex'; };
+    body.appendChild(el);
+    dv.hidden = false;
+    document.body.style.overflow = 'hidden';
+  }
+
+  function schliesse(){
+    dv.hidden = true;
+    document.body.style.overflow = '';
+    body.querySelectorAll('iframe,img').forEach(n => n.remove());  // Laden stoppen
+  }
+
+  document.getElementById('dv-x').addEventListener('click', schliesse);
+  dv.addEventListener('click', e => { if(e.target === dv) schliesse(); });
+  document.addEventListener('keydown', e => { if(e.key === 'Escape' && !dv.hidden){ e.stopPropagation(); schliesse(); } }, true);
+
+  // 1) Klicks auf Links abfangen
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[href]');
+    if(!a || !istDoc(a.getAttribute('href'))) return;
+    e.preventDefault(); e.stopPropagation();
+    zeige(a.href, a.getAttribute('title') || a.dataset.docname || a.textContent.trim() || 'Dokument');
+  }, true);
+
+  // 2) window.open(url,'_blank') für dieselben URLs umleiten
+  const open0 = window.open.bind(window);
+  window.open = function(url, ...rest){
+    if(istDoc(url)){ zeige(url); return null; }
+    return open0(url, ...rest);
+  };
+})();
+</script>

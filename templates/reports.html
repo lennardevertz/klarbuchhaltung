@@ -1,0 +1,202 @@
+{% extends "base_klar.html" %}
+{% block title %}Berichte · Klar{% endblock %}
+{% block body %}
+{% set total_open = open_pay + missing + festz %}
+
+<div class="row" style="gap:14px;flex-wrap:wrap;margin-bottom:26px">
+  <h1 style="margin:0;font-family:var(--font-display);font-weight:700;font-size:30px;letter-spacing:var(--tracking-tight)">Abschluss für</h1>
+  <select class="select" onchange="location.href='?p='+this.value"
+          style="width:auto;font-family:var(--font-display);font-weight:700;font-size:20px;color:var(--accent-deep);padding:9px 40px 9px 15px">
+    {% for tok,lab in periods %}<option value="{{ tok }}" {{ 'selected' if tok==p }}>{{ lab }}</option>{% endfor %}
+  </select>
+</div>
+
+<div class="grid-2" style="gap:28px;align-items:start">
+
+  <div>
+    <div class="overline" style="margin-bottom:16px">Überblick</div>
+    <div class="card">
+      <div class="row" style="align-items:baseline;gap:10px"><span class="disp" style="font-weight:700;font-size:32px">{{ total_open }}</span><span style="font-size:16px;font-weight:500;color:#3C3E49">{{ 'Geschäftsvorfall ist noch offen' if total_open==1 else 'Geschäftsvorfälle sind noch offen' }}</span></div>
+      <div style="height:10px;border-radius:999px;background:var(--wash);overflow:hidden;margin:16px 0 22px"><span style="display:block;height:100%;width:{{ progress }}%;background:{{ 'var(--accent)' if progress>=100 else 'var(--amber)' }}"></span></div>
+      <div class="stack" style="gap:0">
+        <a href="{{ url_for('zahlungen') }}" class="row" style="gap:12px;padding:11px 0;border-bottom:1px solid var(--line-3);text-decoration:none;color:inherit">
+          <span class="num" style="font-weight:700;font-size:16px;width:24px;color:var(--amber-deep)">{{ open_pay }}</span>
+          <span style="flex:1;font-size:14.5px;color:#3C3E49">unverbuchte {{ 'Zahlung' if open_pay==1 else 'Zahlungen' }}</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9C6BB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></a>
+        <a href="{{ url_for('files') }}" class="row" style="gap:12px;padding:11px 0;border-bottom:1px solid var(--line-3);text-decoration:none;color:inherit">
+          <span class="num" style="font-weight:700;font-size:16px;width:24px;color:var(--amber-deep)">{{ missing }}</span>
+          <span style="flex:1;font-size:14.5px;color:#3C3E49">Zahlungen mit fehlendem Beleg</span>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#C9C6BB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 6 6 6-6 6"/></svg></a>
+        <div class="row" style="gap:12px;padding:14px 0 4px">
+          <span class="num" style="font-weight:700;font-size:16px;width:24px;color:{{ 'var(--ink-4)' if closed else 'var(--ink)' }}">{{ festz }}</span>
+          <span style="flex:1;font-size:14.5px;color:#3C3E49">{{ 'festgeschrieben' if closed else 'festzuschreibende Buchungen' }}</span>
+          {% if not closed and festz %}<form method="post" action="{{ url_for('reports_close') }}"><input type="hidden" name="p" value="{{ p }}"><button class="btn btn--primary btn--sm" type="submit">Jetzt festschreiben</button></form>{% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="overline" style="margin-bottom:16px">Auswerten &amp; Exportieren</div>
+    <div class="card" style="padding:0;overflow:hidden">
+      {% set reps = [
+        ('bwa','Betriebswirtschaftliche Auswertung (BWA)','Erträge, Kosten, Ergebnis','var(--azure-tint)','var(--azure-deep)','M3 3v18h18 M7 15l4-4 3 3 5-6'),
+        ('eur','Einnahmenüberschussrechnung (EÜR)','Anlage EÜR · für die Steuererklärung','var(--green-tint)','var(--green-deep)','M4 4h11l5 5v11H4z M15 4v5h5'),
+        ('ustva','Umsatzsteuer-Voranmeldung','USt-VA · zur Übermittlung an ELSTER','var(--amber-tint)','var(--amber-deep)','M4 7h16M4 12h16M4 17h10'),
+        ('zm','Zusammenfassende Meldung','Innergemeinschaftliche Leistungen','var(--wash)','var(--ink-2)','M12 3l1.9 4.7L18.6 9l-4.7 1.9L12 15.6 10.1 10.9 5.4 9l4.7-1.3z'),
+        ('susa','SuSa-Liste / Kontenblätter','Summen- und Saldenliste','var(--wash)','var(--ink-2)','M4 5h16M4 12h16M4 19h16'),
+        ('export','Buchungssätze & Belege exportieren','DATEV / CSV · Prüfungsexport','var(--wash)','var(--ink-2)','M12 3v12M7 10l5 5 5-5M5 21h14') ] %}
+      {% for key,name,desc,bg,fg,icon in reps %}
+      <div onclick="openReport('{{ key }}')" class="row" style="gap:14px;padding:16px 20px;border-bottom:1px solid var(--line-3);cursor:pointer">
+        <div style="width:38px;height:38px;border-radius:11px;background:{{ bg }};color:{{ fg }};display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="{{ icon }}"/></svg></div>
+        <div style="flex:1;min-width:0"><div style="font-size:14.5px;font-weight:600">{{ name }}</div><div class="muted" style="font-size:12.5px">{{ desc }}</div></div>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#C9C6BB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+{# ── Report-Modal ── #}
+<div id="rep-modal" class="scrim" hidden style="align-items:flex-start;padding-top:44px">
+  <div class="modal modal--wide" style="width:min(640px,94vw)">
+    <div class="modal__head" style="border-bottom:1px solid var(--line-3)">
+      <div><h2 id="rm-title"></h2><div class="muted" id="rm-sub" style="font-size:13px;margin-top:2px"></div></div>
+      <button class="iconbtn" onclick="closeModal('rep-modal')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal__body" style="padding-top:18px">
+      {% if gen %}<div class="row" style="gap:11px;align-items:center;background:var(--accent-tint);border-radius:12px;padding:12px 15px;margin-bottom:18px"><span style="width:22px;height:22px;border-radius:50%;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg></span><span style="font-size:13.5px;color:var(--accent-deep)">Bericht für <b>{{ label }}</b> steht bereit.</span></div>{% endif %}
+      <div id="rm-form">
+        <div class="overline" style="margin-bottom:10px">Zeitraum</div>
+        <select id="rm-period" class="select" style="max-width:420px">
+          {% for tok,lab in periods %}<option value="{{ tok }}" {{ 'selected' if tok==p }}>{{ lab }}</option>{% endfor %}
+        </select>
+        <div style="margin-top:18px"><button class="btn btn--primary" onclick="genReport()">Generieren</button></div>
+      </div>
+      <div id="rm-body" hidden>
+        <div class="rep-body" data-r="bwa" hidden>
+          <div class="stack" style="gap:11px">
+            <div class="row" style="justify-content:space-between"><span class="muted">Erträge (netto)</span><span class="num" style="font-weight:600">{{ fig.income|eur }}</span></div>
+            <div class="row" style="justify-content:space-between"><span class="muted">Aufwand (netto)</span><span class="num" style="font-weight:600;color:var(--coral-deep)">{{ fig.expense|eur }}</span></div>
+            <div class="row" style="justify-content:space-between;border-top:1px solid var(--line-3);padding-top:11px"><span style="font-weight:600">Ergebnis</span><span class="disp" style="font-weight:700;font-size:20px">{{ fig.profit|eur }}</span></div>
+          </div>
+        </div>
+        <div class="rep-body" data-r="eur" hidden>
+          {% set e = fig.euer %}
+          {% if fig.method == 'brutto' %}
+          <div class="stack" style="gap:8px;font-size:13.5px">
+            <div class="row" style="justify-content:space-between"><span class="muted">Umsatzerlöse</span><span class="num">{{ e.umsatz_net|eur }}</span></div>
+            {% if e.eigenverbrauch_net %}<div class="row" style="justify-content:space-between"><span class="muted">Eigenverbrauch (Privatanteil)</span><span class="num">{{ e.eigenverbrauch_net|eur }}</span></div>{% endif %}
+            {% if e.sonstige %}<div class="row" style="justify-content:space-between"><span class="muted">sonstige/neutrale Erträge</span><span class="num">{{ e.sonstige|eur }}</span></div>{% endif %}
+            <div class="row" style="justify-content:space-between"><span class="muted">vereinnahmte USt</span><span class="num">{{ e.ust_vereinnahmt|eur }}</span></div>
+            <div class="row" style="justify-content:space-between;border-top:1px solid var(--line-3);padding-top:9px"><span style="font-weight:600">Betriebseinnahmen</span><span class="num" style="font-weight:700">{{ e.betriebseinnahmen|eur }}</span></div>
+            <div class="row" style="justify-content:space-between;margin-top:6px"><span class="muted">Aufwand (netto)</span><span class="num" style="color:var(--coral-deep)">−{{ e.aufwand_net|eur }}</span></div>
+            <div class="row" style="justify-content:space-between"><span class="muted">verauslagte Vorsteuer</span><span class="num" style="color:var(--coral-deep)">−{{ e.vorsteuer_ges|eur }}</span></div>
+            <div class="row" style="justify-content:space-between"><span style="font-weight:600">Betriebsausgaben</span><span class="num" style="font-weight:700;color:var(--coral-deep)">−{{ e.betriebsausgaben|eur }}</span></div>
+            <div class="row" style="justify-content:space-between;border-top:1px solid var(--line-3);padding-top:11px;margin-top:4px"><span style="font-weight:600">Ergebnis</span><span class="disp" style="font-weight:700;font-size:20px">{{ e.ergebnis|eur }}</span></div>
+          </div>
+          <p class="muted" style="font-size:11.5px;margin:10px 0 0">Bruttomethode (amtlich, wie Anlage EÜR). Umschalten unter Einstellungen › Präferenzen.</p>
+          {% else %}
+          <div class="stack" style="gap:11px">
+            <div class="row" style="justify-content:space-between"><span class="muted">Betriebseinnahmen (netto)</span><span class="num" style="font-weight:600">{{ fig.income|eur }}</span></div>
+            <div class="row" style="justify-content:space-between"><span class="muted">Betriebsausgaben (netto)</span><span class="num" style="font-weight:600;color:var(--coral-deep)">{{ fig.expense|eur }}</span></div>
+            <div class="row" style="justify-content:space-between;border-top:1px solid var(--line-3);padding-top:11px"><span style="font-weight:600">Gewinn</span><span class="disp" style="font-weight:700;font-size:20px">{{ fig.profit|eur }}</span></div>
+          </div>
+          <p class="muted" style="font-size:11.5px;margin:10px 0 0">Nettomethode (wirtschaftlich, USt neutral).</p>
+          {% endif %}
+        </div>
+        <div class="rep-body" data-r="ustva" hidden>
+          {% macro kz(num, label, base, tax, kztax='') %}
+          <div style="display:grid;grid-template-columns:minmax(0,1fr) 46px 96px 46px 96px;gap:8px;align-items:center;padding:8px 0">
+            <span style="font-size:12.5px">{{ label }}</span>
+            <span class="num" style="font-size:11.5px;font-weight:600;color:var(--ink-2);background:var(--wash);border-radius:6px;padding:5px 0;text-align:center">{{ num }}</span>
+            {% if base is not none %}<span class="num" style="font-size:12.5px;font-weight:600;background:var(--surface);border:1px solid var(--field-border);border-radius:6px;padding:5px 8px;text-align:right">{{ base|eur }}</span>
+            {% else %}<span></span>{% endif %}
+            {% if tax is not none %}<span class="num" style="font-size:11.5px;font-weight:600;color:var(--ink-2);background:var(--wash);border-radius:6px;padding:5px 0;text-align:center">{{ kztax or 'a' }}</span>
+            <span class="num" style="font-size:12.5px;font-weight:600;background:var(--surface);border:1px solid var(--field-border);border-radius:6px;padding:5px 8px;text-align:right">{{ tax|eur }}</span>
+            {% else %}<span></span><span></span>{% endif %}
+          </div>
+          {% endmacro %}
+          {% if fig.open_rc %}
+          <div style="border:1px solid var(--amber-deep);background:var(--amber-tint);border-radius:12px;padding:12px 14px;margin-bottom:12px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:4px">{{ fig.open_rc|length }} §13b-Beleg(e) ohne Zuordnung</div>
+            <p class="muted" style="font-size:12px;margin:0 0 8px">Ob die Leistung aus der <b>EU</b> (Kz 46/47) oder dem <b>Drittland</b> (Kz 84/85) kommt, steht nicht in den Daten – ohne Zuordnung fehlt die Steuer in der Anmeldung.</p>
+            {% for r in fig.open_rc %}
+            <form method="post" action="{{ url_for('expense_vat_kind', eid=r['id']) }}" style="display:flex;gap:8px;align-items:center;padding:5px 0;flex-wrap:wrap">
+              <input type="hidden" name="back" value="{{ p }}">
+              <span style="flex:1;min-width:160px;font-size:12.5px">{{ r['vendor'] }}<span class="num muted"> · {{ (r['paid_date'] or r['date'])|de_date }} · {{ r['gross_full']|eur }}</span></span>
+              <button class="btn btn--outline btn--sm" name="vat_kind" value="rc_eu" type="submit">EU · § 13b Abs. 1</button>
+              <button class="btn btn--outline btn--sm" name="vat_kind" value="rc_other" type="submit">Drittland · § 13b Abs. 2</button>
+            </form>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <div style="border:1px solid var(--line-2);border-radius:12px;overflow:hidden">
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 46px 96px 46px 96px;gap:8px;padding:9px 14px;background:var(--surface-2);border-bottom:1px solid var(--line-3);font-size:10px;font-weight:600;text-transform:uppercase;color:var(--ink-4)"><span></span><span style="text-align:center">Kz</span><span style="text-align:center">Bemessung</span><span style="text-align:center">Kz</span><span style="text-align:center">Steuer</span></div>
+            <div style="padding:8px 14px">
+              {% for num, lbl, base, kztax, tax in fig.kz_rows %}
+              {{ kz(num, lbl, base, tax, kztax) }}
+              {% endfor %}
+            </div>
+            <div style="display:grid;grid-template-columns:minmax(0,1fr) 46px 96px;gap:8px;align-items:center;padding:12px 14px;background:var(--ink);color:var(--surface)">
+              <span style="font-weight:600">Zahllast</span><span class="num" style="font-size:11.5px;font-weight:600;background:rgba(255,255,255,.14);border-radius:6px;padding:5px 0;text-align:center">83</span><span class="num" style="font-weight:700;text-align:right">{{ fig.zahllast|eur }}</span>
+            </div>
+          </div>
+          <div class="muted" style="font-size:11.5px;margin-top:10px">Kennzahlen entsprechen den Feldern im ELSTER-Formular USt-VA.</div>
+        </div>
+        <div class="rep-body" data-r="zm" hidden>
+          {% if fig.zm_rows %}
+          <div class="stack" style="gap:10px">
+            {% for r in fig.zm_rows %}<div class="row" style="justify-content:space-between"><div><div style="font-size:13.5px;font-weight:600">{{ r['customer_name'] }} <span class="num" style="font-size:11px;font-weight:600;color:var(--ink-2);background:var(--wash);border-radius:5px;padding:2px 6px">{{ r['art'] }}</span></div><div class="num muted" style="font-size:12px">{{ r['customer_vat_id'] or 'keine USt-IdNr.' }} · {{ 'Warenlieferung' if r['art'] == 'L' else 'sonstige Leistung' }}</div></div><span class="num" style="font-weight:600">{{ r['net']|eur }}</span></div>{% endfor %}
+            <div class="row" style="justify-content:space-between;border-top:1px solid var(--line-3);padding-top:10px"><span style="font-weight:600">Summe</span><span class="num" style="font-weight:700">{{ fig.zm_total|eur }}</span></div>
+          </div>
+          {% else %}<div class="muted">Keine EU-Leistungen im gewählten Zeitraum.</div>{% endif %}
+        </div>
+        <div class="rep-body" data-r="susa" hidden>
+          <div class="stack" style="gap:9px">
+            <div class="row" style="justify-content:space-between"><span style="font-weight:600">Erträge</span><span class="num" style="font-weight:600">{{ fig.income|eur }}</span></div>
+            {% for r in fig.susa %}<div class="row" style="justify-content:space-between"><span class="muted" style="font-size:13.5px">{{ r['category'] }}</span><span class="num">{{ r['net']|eur }}</span></div>{% endfor %}
+            <div class="row" style="justify-content:space-between;border-top:1px solid var(--line-3);padding-top:9px"><span style="font-weight:600">Ergebnis</span><span class="num" style="font-weight:700">{{ fig.profit|eur }}</span></div>
+          </div>
+        </div>
+        <div class="rep-body" data-r="export" hidden>
+          <p class="muted" style="font-size:14px;margin-top:0">Buchungssätze &amp; Belege als CSV (Prüfungsexport).</p>
+          <a class="btn btn--primary" href="{{ url_for('zahlungen_export') }}">CSV herunterladen</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+  const RM = {
+    bwa:{t:'Betriebswirtschaftliche Auswertung',s:'Erträge, Kosten, Ergebnis'},
+    eur:{t:'Einnahmenüberschussrechnung',s:'Anlage EÜR'},
+    ustva:{t:'Umsatzsteuer-Voranmeldung',s:'zur Übermittlung an ELSTER'},
+    zm:{t:'Zusammenfassende Meldung',s:'Innergemeinschaftliche Leistungen'},
+    susa:{t:'SuSa-Liste / Kontenblätter',s:'Summen- und Saldenliste'},
+    export:{t:'Buchungssätze & Belege exportieren',s:'DATEV / CSV · Prüfungsexport'},
+  };
+  let rmKey=null;
+  function openReport(k){ rmKey=k; const r=RM[k]||{t:'',s:''};
+    document.getElementById('rm-title').textContent=r.t;
+    document.getElementById('rm-sub').textContent=r.s;
+    document.getElementById('rm-form').hidden=false;
+    document.getElementById('rm-body').hidden=true;
+    document.querySelectorAll('.rep-body').forEach(b=>b.hidden=true);
+    openModal('rep-modal');
+  }
+  function showBody(k){ rmKey=k;
+    document.getElementById('rm-form').hidden=true;
+    document.getElementById('rm-body').hidden=false;
+    document.querySelectorAll('.rep-body').forEach(b=>b.hidden = b.dataset.r!==k);
+  }
+  function genReport(){ const per=document.getElementById('rm-period').value;
+    location.href='?p='+encodeURIComponent(per)+'&gen='+rmKey; }
+  {% if gen %}document.addEventListener('DOMContentLoaded',()=>{ openReport('{{ gen }}'); showBody('{{ gen }}');
+    // gen aus der URL entfernen, damit ein Reload den Bericht nicht erneut öffnet
+    try{ const u=new URL(location.href); u.searchParams.delete('gen'); history.replaceState(null,'',u); }catch(e){} });{% endif %}
+</script>
+{% endblock %}

@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# Startet die Web-App unter einem kleinen Supervisor.
+# Der "Server neu laden"-Knopf beendet den Prozess mit Code 42 -> hier Neustart.
+DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PY="$DIR/.venv/bin/python"
+export BB_SUPERVISED=1
+
+FIRST=1
+while true; do
+  # Beim ersten Start Browser öffnen (sofern nicht unterdrückt), bei Neustarts nicht.
+  [ "$FIRST" = 1 ] && FIRST=0 || export BB_NO_BROWSER=1
+  "$PY" "$DIR/app.py"
+  code=$?
+  [ "$code" = "42" ] || exit "$code"   # nur Code 42 = Neustart, sonst beenden
+  sleep 0.2
+done

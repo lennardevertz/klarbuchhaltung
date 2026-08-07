@@ -1,0 +1,44 @@
+{% extends "base_klar.html" %}
+{% set active = "terminal" %}
+{% block title %}Terminal · Klar{% endblock %}
+{% block head %}<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/css/xterm.min.css">{% endblock %}
+{% block body %}
+<div class="kl-pagehead">
+  <div><h1>Terminal</h1><p class="sub">Echte Shell im Projektordner · tippe <code>claude</code> für den KI-Agenten</p></div>
+  <div class="row" style="gap:10px">
+    <button class="btn btn--outline" onclick="fetch('{{ url_for('terminal_kill') }}',{method:'POST'}).then(()=>location.reload())">Shell neu starten</button>
+    <button class="btn btn--primary" onclick="restartServer()">Server neu laden</button>
+  </div>
+</div>
+
+<div class="card" style="padding:10px;background:#0f1720;border-color:#0f1720">
+  <div id="term" style="height:70vh"></div>
+</div>
+<p class="muted" style="font-size:12px;margin-top:10px">Läuft nur lokal (127.0.0.1). Beispiele: <code>claude</code>, <code>git status</code>, <code>./bb report 2026</code>.</p>
+
+<script>
+  function restartServer(){
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(15,23,32,.85);color:#d7e0ea;display:flex;align-items:center;justify-content:center;font:16px sans-serif;z-index:9999';
+    ov.textContent='Server startet neu…'; document.body.appendChild(ov);
+    fetch('{{ url_for("restart") }}',{method:'POST'}).catch(()=>{});
+    let t=0; const poll=()=>fetch('{{ url_for("healthz") }}',{cache:'no-store'}).then(r=>r.ok?location.reload():retry()).catch(retry);
+    const retry=()=>{ if(++t>60)location.reload(); else setTimeout(poll,250); }; setTimeout(poll,700);
+  }
+</script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@5.5.0/lib/xterm.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.10.0/lib/addon-fit.min.js"></script>
+<script>
+  const term=new Terminal({fontFamily:'ui-monospace, SFMono-Regular, Menlo, monospace',fontSize:13,cursorBlink:true,theme:{background:'#0f1720',foreground:'#d7e0ea',cursor:'#66d9a8'}});
+  const fit=new FitAddon.FitAddon(); term.loadAddon(fit); term.open(document.getElementById('term')); fit.fit();
+  const proto=location.protocol==='https:'?'wss':'ws';
+  const ws=new WebSocket(proto+'://'+location.host+'/pty'); ws.binaryType='arraybuffer';
+  function sendResize(){ if(ws.readyState===1) ws.send('\x01'+JSON.stringify({cols:term.cols,rows:term.rows})); }
+  ws.onopen=()=>{ fit.fit(); sendResize(); term.focus(); };
+  ws.onmessage=(e)=>{ if(typeof e.data==='string') term.write(e.data); else term.write(new Uint8Array(e.data)); };
+  ws.onclose=()=>term.write('\r\n\x1b[33m[Verbindung beendet – „Neu starten" klicken]\x1b[0m\r\n');
+  term.onData(d=>{ if(ws.readyState===1) ws.send(d); });
+  term.onResize(sendResize);
+  window.addEventListener('resize',()=>{ fit.fit(); sendResize(); });
+</script>
+{% endblock %}

@@ -1,0 +1,210 @@
+{% extends "base_klar.html" %}
+{% block title %}Overview · Klar{% endblock %}
+{% block body %}
+
+<div class="kl-pagehead">
+  <div>
+    <h1>Overview</h1>
+    <p class="sub">{{ label }} · Ist-Besteuerung</p>
+  </div>
+  <div class="row" style="gap:10px">
+    <form method="get" class="row" style="gap:8px" id="tf">
+      <select class="select" name="year" onchange="document.getElementById('tf').submit()" style="width:auto">
+        {% for y in years %}<option value="{{ y }}" {{ 'selected' if y==year }}>{{ y }}</option>{% endfor %}
+      </select>
+      <select class="select" name="period" onchange="document.getElementById('tf').submit()" style="width:auto">
+        <option value="year" {{ 'selected' if period=='year' }}>Ganzes Jahr</option>
+        {% for i in [1,2,3,4] %}<option value="q{{ i }}" {{ 'selected' if period=='q'~i }}>Q{{ i }}</option>{% endfor %}
+      </select>
+    </form>
+    <a class="btn btn--primary" href="{{ url_for('invoice_new') }}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+      Neue Rechnung</a>
+  </div>
+</div>
+
+<div class="grid-4" style="margin-bottom:16px">
+  <div class="stat">
+    <div class="row" style="gap:8px"><span style="width:8px;height:8px;border-radius:2px;background:var(--accent)"></span><span class="stat__label">Einnahmen</span></div>
+    <div class="disp" style="font-weight:700;font-size:30px;line-height:1;margin-top:12px;white-space:nowrap">{{ kpi.revenue|eur }}</div>
+    <div class="muted" style="font-size:12.5px;margin-top:11px">netto, bezahlt · {{ label }}</div>
+  </div>
+  <div class="stat">
+    <div class="row" style="gap:8px"><span style="width:8px;height:8px;border-radius:2px;background:var(--coral)"></span><span class="stat__label">Ausgaben</span></div>
+    <div class="disp" style="font-weight:700;font-size:30px;line-height:1;margin-top:12px;white-space:nowrap">{{ kpi.expense|eur }}</div>
+    <div class="muted" style="font-size:12.5px;margin-top:11px">netto, bezahlt · {{ label }}</div>
+  </div>
+  <div class="card card--ink" style="padding:20px;position:relative;overflow:hidden;border-radius:var(--r-xl)">
+    <div style="position:absolute;top:-40px;right:-30px;width:150px;height:150px;border-radius:50%;background:var(--accent);opacity:.18"></div>
+    <div style="font-size:13px;font-weight:600;color:#B9BAC4;position:relative">Gewinn</div>
+    <div class="disp" style="font-weight:700;font-size:30px;line-height:1;margin-top:12px;position:relative;white-space:nowrap">{{ kpi.profit|eur }}</div>
+    <div style="margin-top:11px;position:relative;font-size:12.5px;font-weight:600;color:#5FD3A6">{{ kpi.margin }}% Marge</div>
+  </div>
+  <div class="stat">
+    <div class="row" style="gap:8px"><span style="width:8px;height:8px;border-radius:2px;background:var(--amber)"></span><span class="stat__label">Offen</span></div>
+    <div class="disp" style="font-weight:700;font-size:30px;line-height:1;margin-top:12px;white-space:nowrap">{{ kpi.outstanding|eur }}</div>
+    <div style="font-size:12.5px;color:var(--coral-deep);margin-top:11px">{{ open_count }} offene Rechnung(en)</div>
+  </div>
+</div>
+
+{# ── Charts: Einnahmen vs. Ausgaben + Ausgaben nach Kategorie ── #}
+<div style="display:grid;grid-template-columns:minmax(0,1.7fr) minmax(0,1fr);gap:16px;margin-bottom:16px">
+  <div class="card">
+    <div class="row" style="justify-content:space-between;margin-bottom:20px">
+      <div style="font-size:15px;font-weight:600">Einnahmen vs. Ausgaben</div>
+      <div class="row" style="gap:16px;font-size:12.5px;color:var(--ink-2)"><span class="row" style="gap:6px"><span style="width:9px;height:9px;border-radius:3px;background:var(--accent)"></span>Einnahmen</span><span class="row" style="gap:6px"><span style="width:9px;height:9px;border-radius:3px;background:#F0C7BC"></span>Ausgaben</span></div>
+    </div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:200px;padding-top:8px">
+      {% for s in series %}
+      <div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:8px;height:100%;justify-content:flex-end">
+        <div style="width:100%;display:flex;gap:3px;align-items:flex-end;height:100%;justify-content:center">
+          <span class="bar" data-tip="{{ s.label }} · Einnahmen · <b>{{ s.inc|eur }}</b>" style="width:42%;max-width:16px;height:{{ (s.inc/smax*100)|round(1) }}%;min-height:2px;background:var(--accent);border-radius:4px 4px 0 0;cursor:pointer"></span>
+          <span class="bar" data-tip="{{ s.label }} · Ausgaben · <b>{{ s.exp|eur }}</b>" style="width:42%;max-width:16px;height:{{ (s.exp/smax*100)|round(1) }}%;min-height:2px;background:#F0C7BC;border-radius:4px 4px 0 0;cursor:pointer"></span>
+        </div>
+        <span style="font-size:11px;color:var(--ink-3);font-weight:500">{{ s.label }}</span>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  <div class="card">
+    <div style="font-size:15px;font-weight:600;margin-bottom:18px">Ausgaben nach Kategorie</div>
+    {% if donut %}
+    <div class="stack" style="align-items:center;gap:22px">
+      <div style="position:relative;width:120px;height:120px;flex-shrink:0">
+        <svg width="120" height="120" viewBox="0 0 104 104" style="position:absolute;inset:0;transform:rotate(-90deg)"><circle cx="52" cy="52" r="40" fill="none" stroke="var(--wash)" stroke-width="15"></circle>
+          {% for d in donut %}<circle cx="52" cy="52" r="40" fill="none" stroke="{{ d.color }}" stroke-width="15" stroke-dasharray="{{ d.dash }}" stroke-dashoffset="{{ d.off }}"></circle>{% endfor %}
+        </svg>
+        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center"><span class="num" style="font-weight:700;font-size:15px">{{ donut_total|eur }}</span><span class="muted" style="font-size:9.5px">gesamt</span></div>
+      </div>
+      <div class="stack" style="gap:9px;width:100%">
+        {% for d in donut %}<div class="row leg" style="gap:9px" data-cliponly="1" data-tip="{{ d.name }} · {{ d.amount|eur }} · {{ (d.amount/(donut_total or 1)*100)|round|int }}%"><span style="width:9px;height:9px;border-radius:3px;background:{{ d.color }};flex-shrink:0"></span><span class="leg-name" style="flex:1;min-width:0;font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d.name }}</span><span class="num muted" style="font-size:12.5px">{{ d.amount|eur }}</span></div>{% endfor %}
+      </div>
+    </div>
+    {% else %}<div class="muted" style="font-size:14px;padding:20px 0">Noch keine Ausgaben im Zeitraum.</div>{% endif %}
+  </div>
+</div>
+
+<div style="display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:16px">
+
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="list-head"><span style="font-size:15px;font-weight:600">Letzte Bewegungen</span>
+      <a href="{{ url_for('zahlungen') }}" style="font-size:12.5px;font-weight:600;color:var(--ink-2)">Alle ansehen</a></div>
+    {% for t in recent %}
+    <div class="txn" style="padding:13px 18px">
+      <div class="txn__icon {{ 'txn__icon--in' if t['amount']>0 }}">
+        {% if t['amount']>0 %}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+        {% else %}<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14M5 12l7 7 7-7"/></svg>{% endif %}
+      </div>
+      <div class="txn__body">
+        <div class="txn__title" style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t['description'] or '—' }}</div>
+        <div class="txn__meta">{{ t['date']|de_date }} · {{ cats.get(t['category'], t['category']) }}</div>
+      </div>
+      <div class="txn__amount {{ 'txn__amount--in' if t['amount']>0 }}" style="{{ 'color:var(--coral-deep)' if t['amount']<0 }}">{{ t['amount']|eur }}</div>
+    </div>
+    {% else %}
+    <div class="muted" style="padding:28px 18px;font-size:14px">Noch keine Bewegungen.</div>
+    {% endfor %}
+  </div>
+
+  <div class="card">
+    <div style="font-size:15px;font-weight:600;margin-bottom:16px">Top-Kunden · {{ label }}</div>
+    <div class="stack" style="gap:15px">
+      {% for c in top_clients %}
+      <div>
+        <div class="row" style="justify-content:space-between;font-size:13px;margin-bottom:6px">
+          <span style="font-weight:500">{{ c.name }}</span><span class="num" style="font-weight:600">{{ c.amount|eur }}</span></div>
+        <div style="height:7px;border-radius:999px;background:var(--wash);overflow:hidden"><span style="display:block;height:100%;width:{{ c.pct }}%;background:var(--accent)"></span></div>
+      </div>
+      {% else %}
+      <div class="muted" style="font-size:14px">Noch keine bezahlten Rechnungen dieses Jahr.</div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <div class="stack" style="gap:16px">
+
+    {# ── Für Steuern zurücklegen ── #}
+    <div class="card" style="background:#E7F3EC;border-color:#CFE7D8">
+      <div class="row" style="justify-content:space-between;align-items:flex-start">
+        <span style="font-size:14px;font-weight:600;color:#1F6B45">Für Steuern zurücklegen</span>
+        <a href="{{ url_for('settings', tab='steuer') }}" title="Steuer-Einstellungen"
+           style="color:#1F6B45;opacity:.7;display:inline-flex">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+        </a>
+      </div>
+      <div class="disp" style="font-weight:700;font-size:30px;line-height:1;margin-top:12px;color:#16311F;white-space:nowrap">{{ reserve.gesamt|eur }}</div>
+      <div class="stack" style="gap:8px;margin-top:16px">
+        <div class="row" style="justify-content:space-between;align-items:baseline;gap:12px;font-size:13px">
+          <span style="color:#2E5A41;min-width:0">USt {{ reserve.ust_label }} <span style="font-size:11px;color:#4C8062;font-weight:600">· exakt</span></span>
+          <span class="num" style="font-weight:600;color:#16311F;white-space:nowrap;flex-shrink:0">{{ reserve.ust|eur }}</span>
+        </div>
+        <div class="row" style="justify-content:space-between;align-items:baseline;gap:12px;font-size:13px">
+          <span style="color:#2E5A41;min-width:0">Einkommensteuer {{ reserve.year }} <span style="font-size:11px;color:#4C8062;font-weight:600">· geschätzt</span></span>
+          <span class="num" style="font-weight:600;color:#16311F;white-space:nowrap;flex-shrink:0">{{ reserve.est.gesamt|eur }}</span>
+        </div>
+      </div>
+      {% if reserve.est.vorauszahlung_jahr is not none %}
+      <div class="row" style="justify-content:space-between;align-items:baseline;gap:12px;font-size:12.5px;margin-top:12px;padding-top:12px;border-top:1px solid #CFE7D8">
+        <span style="color:#2E5A41;min-width:0">ESt-Vorauszahlung Finanzamt <span class="num">{{ reserve.est.vorauszahlung_jahr|eur }}</span>/Jahr →
+          {% if reserve.est.differenz > 0 %}<b style="color:var(--coral-deep)">Nachzahlung</b>{% elif reserve.est.differenz < 0 %}<b style="color:#1F6B45">Erstattung</b>{% else %}<b>gedeckt</b>{% endif %}</span>
+        <span class="num" style="font-weight:700;white-space:nowrap;flex-shrink:0;color:{{ 'var(--coral-deep)' if reserve.est.differenz > 0 else '#1F6B45' }}">{{ '+' if reserve.est.differenz > 0 }}{{ reserve.est.differenz|eur }}</span>
+      </div>
+      {% endif %}
+      <div style="font-size:11.5px;color:#4C8062;margin-top:14px;line-height:1.5">
+        USt laufendes Quartal · ESt §32a auf Gewinn {{ reserve.est.gewinn|eur }}{% if reserve.est.kirchensteuer or reserve.est.soli %} (inkl. {{ 'KiSt' if reserve.est.kirchensteuer }}{{ ' + ' if reserve.est.kirchensteuer and reserve.est.soli }}{{ 'Soli' if reserve.est.soli }}){% endif %}. <a href="{{ url_for('settings', tab='steuer') }}" style="color:#1F6B45;font-weight:600">Anpassen</a>
+      </div>
+    </div>
+
+    {# ── Anstehende Steuertermine ── #}
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="list-head"><span style="font-size:15px;font-weight:600">Anstehend</span></div>
+      {% for u in upcoming %}
+      <div class="row" style="gap:12px;padding:13px 18px;{{ 'border-top:1px solid var(--line)' if not loop.first }}{{ ';background:#FCEDED' if u.due_soon and not u.acked }}">
+        <div style="flex-shrink:0;width:42px;text-align:center;background:{{ '#FCE1E1' if u.due_soon and not u.acked else '#FBEFD6' if u.kind=='ustva' else 'var(--wash)' }};border-radius:10px;padding:7px 0">
+          <div style="font-size:15px;font-weight:700;line-height:1;color:{{ 'var(--coral-deep)' if u.due_soon and not u.acked else 'var(--ink)' }}">{{ u.day }}</div>
+          <div style="font-size:10px;font-weight:600;color:{{ 'var(--coral-deep)' if u.due_soon and not u.acked else 'var(--ink-3)' }};margin-top:2px">{{ u.mon }}</div>
+        </div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;font-weight:600{{ ';text-decoration:line-through;color:var(--ink-3)' if u.acked }}">{{ u.title }}</div>
+          <div class="muted" style="font-size:12px">{{ u.sub }}{% if u.due_soon and not u.acked %} · <b style="color:var(--coral-deep)">in {{ u.days_until }} Tg. fällig</b>{% elif u.acked %} · <span style="color:#1F6B45">erledigt</span>{% endif %}</div>
+        </div>
+        <div class="num" style="font-weight:600;font-size:13.5px;white-space:nowrap;{{ 'color:var(--ink-3)' if u.acked }}">{{ '~' if u.estimate }}{{ u.amount|eur }}</div>
+        {% if u.due_soon or u.acked %}
+        <form method="post" action="{{ url_for('tax_ack') }}" style="margin:0;flex-shrink:0">
+          <input type="hidden" name="key" value="{{ u.key }}">
+          {% if u.acked %}<input type="hidden" name="undo" value="1">{% endif %}
+          <button type="submit" title="{{ 'Wieder öffnen' if u.acked else 'Als erledigt abhaken' }}"
+            style="width:24px;height:24px;border-radius:7px;border:1.5px solid {{ '#1FA971' if u.acked else 'var(--coral-deep)' }};background:{{ '#1FA971' if u.acked else 'transparent' }};color:#fff;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0">
+            {% if u.acked %}<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>{% endif %}
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <div class="muted" style="padding:24px 18px;font-size:14px">Keine anstehenden Termine.</div>
+      {% endfor %}
+    </div>
+
+  </div>
+
+</div>
+
+<div id="chart-tip" style="position:fixed;z-index:1300;display:none;pointer-events:none;background:var(--ink);color:#fff;font-family:var(--font-ui);font-size:12px;font-weight:500;padding:6px 10px;border-radius:8px;box-shadow:0 6px 20px -6px rgba(0,0,0,.45);white-space:nowrap"></div>
+{% endblock %}
+{% block scripts %}
+<script>
+  (function(){
+    const tip=document.getElementById('chart-tip');
+    function pos(e){ tip.style.left=(e.clientX+14)+'px'; tip.style.top=(e.clientY+14)+'px'; }
+    function bind(el){
+      el.addEventListener('mouseenter', e=>{
+        if(el.dataset.cliponly==='1'){ const n=el.querySelector('.leg-name'); if(!n || n.scrollWidth<=n.clientWidth+1) return; }
+        tip.innerHTML=el.dataset.tip; tip.style.display='block'; pos(e);
+      });
+      el.addEventListener('mousemove', pos);
+      el.addEventListener('mouseleave', ()=>{ tip.style.display='none'; });
+    }
+    document.querySelectorAll('.bar[data-tip], .leg[data-tip]').forEach(bind);
+  })();
+</script>
+{% endblock %}

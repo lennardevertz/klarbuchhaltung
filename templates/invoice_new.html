@@ -1,0 +1,108 @@
+{% extends "base_klar.html" %}
+{% block title %}Neue Rechnung · Klar{% endblock %}
+{% block body %}
+
+<div class="kl-pagehead">
+  <div><h1>Neue Rechnung</h1><p class="sub">Positionen, Kunde &amp; Steuermodus</p></div>
+  <a class="btn btn--ghost" href="{{ url_for('invoices') }}">Abbrechen</a>
+</div>
+
+<form method="post" enctype="multipart/form-data" style="display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:20px;align-items:start">
+
+  <div class="stack" style="gap:20px">
+    <div class="card stack">
+      <div style="font-size:15px;font-weight:600">Kunde</div>
+      <div class="field"><label>Bestehender Kunde</label>
+        <select class="select" name="customer_id" onchange="fillCustomer(this.value)">
+          <option value="">— neuer Kunde —</option>
+          {% for c in customers %}<option value="{{ c['id'] }}">{{ c['name'] }}</option>{% endfor %}
+        </select></div>
+      <div id="newcust" class="stack" style="gap:12px">
+        <div class="field"><label>Name</label><input class="input" name="new_name" placeholder="Firma / Person"></div>
+        <div class="field"><label>Adresse</label><textarea class="textarea" name="new_address" rows="2" placeholder="Straße; PLZ Ort; Land"></textarea></div>
+        <div class="field"><label>USt-IdNr. (bei EU)</label><input class="input" name="new_vat_id"></div>
+        <label class="row" style="gap:9px;font-size:13.5px;color:var(--ink-2);cursor:pointer">
+          <input type="checkbox" name="no_save" value="1" style="width:16px;height:16px;accent-color:var(--ink)">
+          Nur für diese Rechnung – nicht ins Kundenregister aufnehmen
+        </label>
+      </div>
+    </div>
+
+    <div class="card stack">
+      <div class="row" style="justify-content:space-between"><span style="font-size:15px;font-weight:600">Positionen</span>
+        <button class="btn btn--outline btn--sm" type="button" onclick="addItem()">+ Position</button></div>
+      <div id="items" class="stack" style="gap:10px"></div>
+    </div>
+  </div>
+
+  <div class="stack" style="gap:20px">
+    <div class="card stack">
+      <div style="font-size:15px;font-weight:600">Details</div>
+      <div class="field"><label>Rechnungsnummer (optional)</label><input class="input" name="number" placeholder="automatisch"></div>
+      <div class="field"><label>Art</label>
+        <select class="select" name="kind">
+          <option value="domestic">Inland (mit USt)</option>
+          <option value="eu">EU (Reverse Charge)</option>
+          <option value="third">Drittland</option>
+        </select>
+        <p class="muted" style="font-size:12px;margin:7px 0 0">Wird aus dem Kunden abgeleitet (USt-IdNr./Land) – die Auswahl greift nur, wenn beides fehlt.</p></div>
+      <div class="field"><label>Leistungsart</label>
+        <select class="select" name="supply_type">
+          <option value="service">Sonstige Leistung (Dienstleistung)</option>
+          <option value="goods">Warenlieferung</option>
+          <option value="exempt">Steuerfrei ohne Vorsteuerabzug (§ 4 Nr. 8–29)</option>
+        </select>
+        <p class="muted" style="font-size:12px;margin:7px 0 0">Bestimmt zusammen mit der Art die Kennzahl: EU-Dienstleistung → Kz 21, EU-Warenlieferung → Kz 41 (beide ZM-pflichtig, aber getrennt), Drittland-Ware → Kz 43 (Ausfuhr), steuerfrei → Kz 48.</p></div>
+      <div class="field"><label>Rechnungsdatum</label><input class="input" type="date" name="issue_date" value="{{ today }}"></div>
+      <div class="row" style="gap:12px">
+        <div class="field" style="flex:1"><label>Leistung von</label><input class="input" type="date" name="service_from" value="{{ today }}"></div>
+        <div class="field" style="flex:1"><label>bis (optional)</label><input class="input" type="date" name="service_to"></div>
+      </div>
+      <div class="field"><label>Bezahlt am (optional)</label><input class="input" type="date" name="paid_date"></div>
+      <div class="field"><label>Notiz (optional)</label><textarea class="textarea" name="notes" rows="2"></textarea></div>
+    </div>
+    <div class="card stack">
+      <div class="row" style="justify-content:space-between;align-items:baseline"><span style="font-size:15px;font-weight:600">Netto-Summe</span><span class="disp" id="total" style="font-weight:700;font-size:26px">€0,00</span></div>
+      <div class="field"><label>Eigenes PDF hochladen (statt generieren)</label><input class="input" type="file" name="pdf" accept=".pdf" style="padding:9px 11px"></div>
+      <button class="btn btn--primary" type="submit">Rechnung erstellen</button>
+    </div>
+  </div>
+</form>
+
+{% endblock %}
+{% block scripts %}
+<script>
+  const DEF_RATE = {{ default_rate }};
+  const CUSTOMERS = {
+    {% for c in customers %}"{{ c['id'] }}": {name: {{ c['name']|tojson }}, address: {{ (c['address'] or '')|tojson }}, vat: {{ (c['vat_id'] or '')|tojson }}}{{ ',' if not loop.last }}
+    {% endfor %}
+  };
+  function fillCustomer(id){
+    const c = CUSTOMERS[id];
+    const nm=document.querySelector('[name=new_name]'), ad=document.querySelector('[name=new_address]'), vt=document.querySelector('[name=new_vat_id]');
+    if(c){ nm.value=c.name; ad.value=(c.address||'').replace(/;\s*/g,'\n'); vt.value=c.vat||''; }
+    else { nm.value=''; ad.value=''; vt.value=''; }
+  }
+  function itemRow(){
+    const d=document.createElement('div'); d.className='row item'; d.style.gap='8px';
+    d.innerHTML = `
+      <input class="input desc" name="item_desc" placeholder="Leistung" style="flex:2">
+      <input class="input num qty" name="item_qty" value="1" style="width:60px" oninput="calc()">
+      <input class="input unit" name="item_unit" placeholder="Einh." style="width:70px">
+      <input class="input num price" name="item_price" placeholder="0,00" style="width:100px" oninput="calc()">
+      <input class="input num rate" name="item_rate" value="`+DEF_RATE+`" style="width:60px" title="USt %">
+      <button class="iconbtn" type="button" onclick="this.parentElement.remove();calc()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>`;
+    return d;
+  }
+  function addItem(){ document.getElementById('items').appendChild(itemRow()); }
+  function calc(){
+    let t=0; document.querySelectorAll('#items .item').forEach(r=>{
+      const q=parseFloat((r.querySelector('.qty').value||'0').replace(',','.'))||0;
+      const p=parseFloat((r.querySelector('.price').value||'0').replace(',','.'))||0;
+      t+=q*p;
+    });
+    document.getElementById('total').textContent = '€'+t.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
+  addItem();
+</script>
+{% endblock %}

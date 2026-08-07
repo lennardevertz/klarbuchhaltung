@@ -1,0 +1,487 @@
+{% extends "base_klar.html" %}
+{% block title %}Zahlungen · Klar{% endblock %}
+{% block body %}
+
+<div class="kl-pagehead">
+  <div>
+    <h1>Zahlungen</h1>
+    <p class="sub">{{ count }} Buchungen · {{ plabel }}{% if open_count %} · {{ open_count }} offen{% endif %}</p>
+  </div>
+  <div class="row" style="gap:10px">
+    <select class="select" onchange="location.href='?p='+this.value"
+            style="width:auto;font-family:var(--font-display);font-weight:700;font-size:15px;color:var(--accent-deep);padding:10px 38px 10px 15px">
+      {% for tok,lab in periods %}<option value="{{ tok }}" {{ 'selected' if tok==p }}>{{ lab }}</option>{% endfor %}
+    </select>
+    <a class="btn btn--outline" href="{{ url_for('zahlungen_export') }}">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Export CSV</a>
+    <button class="btn btn--outline" type="button" onclick="openModal('import-modal')">CSV importieren</button>
+    <button class="btn btn--primary" type="button" onclick="openModal('add-modal')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>Zahlung</button>
+  </div>
+</div>
+
+<div class="grid-3" style="margin-bottom:18px">
+  <div class="stat" style="padding:16px 18px">
+    <div class="row" style="gap:7px;font-size:12.5px;font-weight:600;color:var(--ink-3)"><span style="width:8px;height:8px;border-radius:2px;background:var(--accent)"></span>Geldeingang</div>
+    <div class="disp" style="font-weight:700;font-size:26px;margin-top:8px;color:var(--green-deep)">{{ summary.money_in|eur }}</div>
+  </div>
+  <div class="stat" style="padding:16px 18px">
+    <div class="row" style="gap:7px;font-size:12.5px;font-weight:600;color:var(--ink-3)"><span style="width:8px;height:8px;border-radius:2px;background:var(--coral)"></span>Geldausgang</div>
+    <div class="disp" style="font-weight:700;font-size:26px;margin-top:8px">{{ summary.money_out|eur }}</div>
+  </div>
+  <div class="stat" style="padding:16px 18px">
+    <div style="font-size:12.5px;font-weight:600;color:var(--ink-3)">Netto</div>
+    <div class="disp" style="font-weight:700;font-size:26px;margin-top:8px">{{ summary.net|eur }}</div>
+  </div>
+</div>
+
+<div class="row" style="gap:12px;flex-wrap:wrap;margin-bottom:16px">
+  <div class="row" style="flex:1;min-width:220px;gap:10px;padding:11px 15px;border-radius:12px;border:1.5px solid var(--field-border);background:var(--surface)">
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--ink-3)" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg>
+    <input id="tx-search" oninput="txFilter()" placeholder="Beschreibung, Anbieter, Konto, Notiz oder Betrag suchen…" style="flex:1;border:none;outline:none;font:400 14.5px var(--font-ui);background:transparent;color:var(--ink)">
+  </div>
+  <div class="row" style="gap:7px;flex-wrap:wrap">
+    <button class="chip chip--active" data-filter="all" onclick="txChip(this)">Alle</button>
+    <button class="chip" data-filter="in" onclick="txChip(this)">Einnahmen</button>
+    <button class="chip" data-filter="out" onclick="txChip(this)">Ausgaben</button>
+    <button class="chip" data-filter="uncat" onclick="txChip(this)">Nicht zugeordnet</button>
+  </div>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+  <div class="row" style="gap:14px;padding:11px 20px;border-bottom:1px solid var(--line-3);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-4)">
+    <span style="width:18px;flex-shrink:0"></span>
+    <span style="flex:1;min-width:0">Zahlungspartner · Datum</span>
+    <span style="width:120px;flex-shrink:0;text-align:right">Betrag</span>
+    <span style="width:210px;flex-shrink:0">Buchungssatz</span>
+    <span style="width:120px;flex-shrink:0">Steuer</span>
+    <span style="width:74px;flex-shrink:0;text-align:center">Beleg</span>
+  </div>
+
+  <div id="tx-list">
+  {% for g in groups %}
+  <div class="tx-day" data-day>
+    <div class="day-group" style="display:flex;justify-content:space-between">
+      <span>{{ g.label }}</span><span class="num" style="letter-spacing:0;text-transform:none;color:var(--ink-3)">{{ g.total|eur }}</span>
+    </div>
+    {% for t in g.rows %}
+    {% if t.kind == 'nutzungsentnahme' %}
+    {# ── Nutzungsentnahme: abgeleitete Gegenbuchung des Privatanteils (kein Zahlungsfluss) ── #}
+    <div class="tx-item" data-kind="in" data-uncat="0" data-text="{{ t.search }}">
+      <div class="txn" style="cursor:default;background:var(--surface-2)">
+        <span style="width:16px;flex-shrink:0;display:inline-flex;justify-content:center;color:var(--ink-4)">└</span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;font-weight:500;color:var(--ink-2)">{{ t.text }}</div>
+          <div class="txn__meta">Privatanteil aus {{ t.sub }} · rechnerische Gegenbuchung</div>
+        </div>
+        <div class="num" style="width:120px;flex-shrink:0;text-align:right;font-weight:600;font-size:14px;color:var(--green-deep)">+{{ t.amount|eur }}</div>
+        <div style="width:210px;flex-shrink:0">
+          <div class="skrbox" style="opacity:.85"><div class="num" style="font-size:12px;font-weight:600">{{ t.skr_no }}</div><div style="font-size:11.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.skr_name }}</div></div>
+        </div>
+        <div style="width:120px;flex-shrink:0"><span style="display:inline-block;font-size:12px;font-weight:500;color:#3C3E49;border:1px solid var(--field-border);border-radius:8px;padding:6px 9px;background:var(--surface);white-space:nowrap">{{ t.tax }}</span></div>
+        <div style="width:74px;flex-shrink:0"></div>
+      </div>
+    </div>
+    {% elif t.kind != 'bank' %}
+    {# ── Gebuchte Ausgabe / Rechnung (aus BHB/DATEV oder App) – editierbar, mit Beleg ── #}
+    {% set _cat = t.skr_no ~ (' - ' ~ t.skr_name if t.skr_name else '') %}
+    {% set _title = (t.text or '—')|replace('"', ' ') ~ ' · ' ~ t.date|de_date %}
+    <div class="tx-item" data-kind="{{ 'in' if t.is_income else 'out' }}" data-uncat="0" data-text="{{ t.search }}">
+      <div class="txn tx-row" onclick="txToggle(this)">
+        <span title="{{ 'Rechnung' if t.kind=='invoice' else 'Ausgabe' }}" style="width:16px;height:16px;flex-shrink:0;border-radius:5px;display:inline-flex;align-items:center;justify-content:center;background:{{ 'var(--green-tint)' if t.is_income else '#F5E3DE' }};color:{{ 'var(--green)' if t.is_income else 'var(--coral-deep)' }}">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="{{ 'M12 19V5M5 12l7-7 7 7' if t.is_income else 'M12 5v14M5 12l7 7 7-7' }}"/></svg></span>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.text or '—' }}</div>
+          <div class="txn__meta row" style="gap:6px"><span class="chev" style="display:inline-flex;transition:transform .15s"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>{{ t.date|de_date }}{% if t.sub %} · {{ t.sub }}{% endif %}</div>
+        </div>
+        <div class="num" style="width:120px;flex-shrink:0;text-align:right;font-weight:600;font-size:15px;color:{{ 'var(--green-deep)' if t.is_income else 'var(--coral-deep)' }}">{{ t.amount|eur }}</div>
+        <div style="width:210px;flex-shrink:0" onclick="event.stopPropagation()">
+          {% if t.kind == 'expense' %}
+          <button class="skrbox" style="width:100%" onclick="openEdit(this)"
+                  data-kind="expense" data-eid="{{ t.id }}" data-action="expense" data-cat="{{ _cat }}"
+                  data-vat="{{ t.vat_rate }}" data-vatkind="{{ t.vat_kind or 'domestic' }}" data-private="{{ t.private_share }}" data-income="0" data-title="{{ _title }}">
+            <div class="num" style="font-size:12px;font-weight:600">{{ t.skr_no }}</div>
+            <div style="font-size:11.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.skr_name }}</div>
+          </button>
+          {% else %}
+          <a class="skrbox" href="{{ t.open_url }}" style="display:block;text-decoration:none" title="Rechnung öffnen">
+            <div class="num" style="font-size:12px;font-weight:600">{{ t.skr_no }}</div>
+            <div style="font-size:11.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.skr_name }}</div>
+          </a>
+          {% endif %}
+        </div>
+        <div style="width:120px;flex-shrink:0"><span style="display:inline-block;font-size:12px;font-weight:500;color:#3C3E49;border:1px solid var(--field-border);border-radius:8px;padding:6px 9px;background:var(--surface);white-space:nowrap">{{ t.tax }}</span></div>
+        <div class="row" style="width:74px;flex-shrink:0;justify-content:center;gap:8px">
+          {% if t.beleg_url %}<a href="{{ t.beleg_url }}" target="_blank" title="Beleg öffnen" onclick="event.stopPropagation()" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--green-line,#CFE7D8);background:var(--green-tint);color:var(--green-deep);display:inline-flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/><path d="M8 13h7M8 16.5h7"/></svg></a>
+          {% else %}<span title="Kein Beleg hinterlegt" style="width:30px;height:30px;border-radius:8px;border:1px dashed #D8D4C8;color:#C9C6BB;display:inline-flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/></svg></span>{% endif %}
+        </div>
+      </div>
+      <div class="tx-detail" hidden>
+        <div style="padding:2px 20px 18px 50px;background:var(--surface-2);display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+          {% if t.kind == 'expense' %}
+          <button class="btn btn--primary btn--sm" onclick="openEdit(this)" data-kind="expense" data-eid="{{ t.id }}" data-action="expense" data-cat="{{ _cat }}" data-vat="{{ t.vat_rate }}" data-vatkind="{{ t.vat_kind or 'domestic' }}" data-private="{{ t.private_share }}" data-income="0" data-title="{{ _title }}">Buchungssatz bearbeiten</button>
+          <form method="post" action="{{ url_for('expense_delete', eid=t.id) }}" onsubmit="return klarConfirmSubmit(this, 'Diese Ausgabe wird endgültig entfernt.', {titel:'Ausgabe löschen', ja:'Löschen', gefahr:true})" style="margin:0"><button class="btn btn--outline btn--sm" type="submit">Löschen</button></form>
+          {% else %}
+          <a class="btn btn--primary btn--sm" href="{{ t.open_url }}">Rechnung öffnen</a>
+          <form method="post" action="{{ url_for('invoice_delete', iid=t.id) }}" onsubmit="return klarConfirmSubmit(this, 'Diese Rechnung wird endgültig entfernt.', {titel:'Rechnung löschen', ja:'Löschen', gefahr:true})" style="margin:0"><button class="btn btn--outline btn--sm" type="submit">Löschen</button></form>
+          {% endif %}
+          {% if t.beleg_url %}<a class="btn btn--outline btn--sm" href="{{ t.beleg_url }}" target="_blank">Beleg öffnen</a>{% endif %}
+        </div>
+      </div>
+    </div>
+    {% else %}
+    <div class="tx-item" data-kind="{{ 'in' if t.is_income else 'out' }}" data-uncat="{{ '1' if not t.categorized else '0' }}"
+         data-text="{{ t.search }}">
+      <div class="txn tx-row" onclick="txToggle(this)">
+        <input type="checkbox" class="txcheck" value="{{ t.id }}" onclick="event.stopPropagation();txBulk()" style="width:16px;height:16px;flex-shrink:0;accent-color:var(--ink);cursor:pointer">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.description or '—' }}</div>
+          <div class="txn__meta row" style="gap:6px"><span class="chev" style="display:inline-flex;transition:transform .15s"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg></span>{{ t.date|de_date }}{% if t.tx_type %} · {{ t.tx_type }}{% endif %}</div>
+        </div>
+        <div class="num" style="width:120px;flex-shrink:0;text-align:right;font-weight:600;font-size:15px;color:{{ 'var(--green-deep)' if t.is_income else 'var(--coral-deep)' if t.amount<0 else 'var(--ink)' }}">
+          {% if (t.currency or 'EUR')==home_currency %}{{ t.amount|eur }}{% else %}{{ '%.2f'|format(t.amount) }} {{ t.currency }}{% endif %}
+        </div>
+        <div style="width:210px;flex-shrink:0" onclick="event.stopPropagation()">
+          {% if t.categorized %}
+          <button class="skrbox" onclick="openEdit(this)"
+                  data-tid="{{ t.id }}" data-action="{{ t.st.action }}" data-cat="{{ t.st.category }}" data-vat="{{ t.st.vat_rate }}" data-vatkind="{{ t.st.vat_kind or 'domestic' }}" data-private="{{ t.st.private_share }}" data-income="{{ '1' if t.is_income else '0' }}" data-title="{{ (t.description or '—')|replace('"', ' ') }} · {{ t.date|de_date }}">
+            <div class="num" style="font-size:12px;font-weight:600">{{ t.skr_no }}</div>
+            <div style="font-size:11.5px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ t.skr_name or cats.get(t.category, t.category) }}</div>
+          </button>
+          {% else %}
+          <button class="skr-assign" onclick="openEdit(this)"
+                  data-tid="{{ t.id }}" data-action="" data-cat="" data-vat="19" data-vatkind="domestic" data-private="0" data-income="{{ '1' if t.is_income else '0' }}" data-title="{{ (t.description or '—')|replace('"', ' ') }} · {{ t.date|de_date }}">+ Buchungssatz zuweisen</button>
+          {% endif %}
+        </div>
+        <div style="width:120px;flex-shrink:0"><span style="display:inline-block;font-size:12px;font-weight:500;color:#3C3E49;border:1px solid var(--field-border);border-radius:8px;padding:6px 9px;background:var(--surface);white-space:nowrap">{{ t.tax }}</span></div>
+        <div class="row" style="width:74px;flex-shrink:0;justify-content:center;gap:8px">
+          {% if t.beleg_url %}<a href="{{ t.beleg_url }}" target="_blank" title="Beleg öffnen" onclick="event.stopPropagation()" style="width:30px;height:30px;border-radius:8px;border:1px solid var(--green-line,#CFE7D8);background:var(--green-tint);color:var(--green-deep);display:inline-flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/><path d="M8 13h7M8 16.5h7"/></svg></a>
+          {% else %}<span title="Kein Beleg" style="width:30px;height:30px;border-radius:8px;border:1px dashed #D8D4C8;color:#C9C6BB;display:inline-flex;align-items:center;justify-content:center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/></svg></span>{% endif %}
+          <span title="{{ 'Zugeordnet' if t.posted else 'Offen' }}" style="width:26px;height:26px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;background:{{ 'var(--green-tint)' if t.posted else 'var(--wash)' }};color:{{ 'var(--green)' if t.posted else 'var(--ink-4)' }}"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="{{ 'M8 11V8a4 4 0 0 1 8 0v3' if t.posted else 'M8 11V8a4 4 0 0 1 7-2.6' }}"/></svg></span>
+        </div>
+      </div>
+      <div class="tx-detail" hidden>
+        <div style="padding:2px 20px 18px 50px;background:var(--surface-2);display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px 28px">
+          <div><div class="overline" style="margin-bottom:3px">Verwendungszweck</div><div style="font-size:13.5px">{{ t.description or '—' }}</div></div>
+          <div><div class="overline" style="margin-bottom:3px">Referenz</div><div class="num" style="font-size:13.5px">{{ t.ref or '—' }}</div></div>
+          <div><div class="overline" style="margin-bottom:3px">Betrag (EUR)</div><div class="num" style="font-size:13.5px">{{ (t.amount_home if t.amount_home is not none else t.amount)|eur }}</div></div>
+          <div style="grid-column:1 / -1" class="row" style="gap:10px;margin-top:2px">
+            <button class="btn btn--primary btn--sm" onclick="openEditFromDetail(this)"
+                    data-tid="{{ t.id }}" data-action="{{ t.st.action }}" data-cat="{{ t.st.category }}" data-vat="{{ t.st.vat_rate }}" data-vatkind="{{ t.st.vat_kind or 'domestic' }}" data-private="{{ t.st.private_share }}" data-income="{{ '1' if t.is_income else '0' }}" data-title="{{ (t.description or '—')|replace('"', ' ') }} · {{ t.date|de_date }}">Bearbeiten</button>
+            {% if not t.is_income %}
+            <button class="btn btn--outline btn--sm" onclick="openSplit(this)"
+                    data-tid="{{ t.id }}" data-amount="{{ '%.2f'|format((t.amount_home if t.amount_home is not none else t.amount)|abs) }}">Split buchen</button>
+            {% endif %}
+            <form id="up-{{ t.id }}" method="post" action="{{ url_for('zahlungen_upload', tid=t.id) }}" enctype="multipart/form-data" style="display:none"><input type="hidden" name="back" value="all"><input type="file" name="file" accept=".pdf,image/*" onchange="this.form.submit()"></form>
+            <button class="btn btn--outline btn--sm" type="button" onclick="document.querySelector('#up-{{ t.id }} input[type=file]').click()">Beleg hochladen</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    {% endif %}
+    {% endfor %}
+  </div>
+  {% endfor %}
+  </div>
+  <div id="tx-empty" class="muted" style="padding:56px 22px;text-align:center;display:none">Keine Buchungen für diesen Filter.</div>
+</div>
+
+{# ── Buchungssatz zuweisen (Mockup-getreu) ────────────────────────── #}
+<div id="edit-modal" class="scrim" hidden style="align-items:flex-start;padding-top:8vh">
+  <div class="modal" style="width:min(600px,94vw);overflow:visible">
+    <div class="modal__head"><div><h2>Buchungssatz zuweisen</h2><div class="muted" id="ef-txn" style="font-size:13px;margin-top:3px"></div></div>
+      <button class="iconbtn" type="button" onclick="closeModal('edit-modal')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <form id="edit-form" method="post" onsubmit="return bsSubmit()">
+      <input type="hidden" name="back" value="all">
+      <input type="hidden" name="action" id="ef-action">
+      <input type="hidden" name="category" id="ef-category">
+      <input type="hidden" name="vat_rate" id="ef-vat" value="19">
+      <input type="hidden" name="vat_kind" id="ef-vatkind" value="domestic">
+      <input type="hidden" name="invoice_id" id="ef-invoiceid">
+      <div style="padding:4px 24px;display:flex;flex-direction:column;gap:18px">
+        {# Aktion segmented #}
+        <div>
+          <label style="display:block;font-size:13px;font-weight:600;color:#3C3E49;margin-bottom:8px">Aktion</label>
+          <div style="display:flex;gap:6px;background:var(--wash);padding:4px;border-radius:12px">
+            <button type="button" class="bs-seg" data-a="expense" onclick="bsAction(this)">Betriebsausgabe</button>
+            <button type="button" class="bs-seg" data-a="income" onclick="bsAction(this)">Betriebseinnahme</button>
+            <button type="button" class="bs-seg" data-a="private" onclick="bsAction(this)">Privat</button>
+          </div>
+          <div id="ef-erstattung-hint" hidden style="margin-top:8px;font-size:12px;color:var(--accent-deep);background:var(--accent-tint);border-radius:8px;padding:7px 10px">
+            → Eingang wird als <b>Ausgaben-Erstattung (Minderung)</b> auf das gewählte Konto gebucht.
+          </div>
+        </div>
+        {# SKR03 custom dropdown #}
+        <div id="ef-skr-wrap" style="position:relative">
+          <label style="display:block;font-size:13px;font-weight:600;color:#3C3E49;margin-bottom:8px">SKR03-Konto</label>
+          <div class="bs-trigger" onclick="bsToggle('skr')">
+            <span style="display:inline-flex;align-items:center;gap:10px;min-width:0"><span class="num" id="ef-skr-no" style="font-size:12px;font-weight:600;color:var(--accent-deep);background:var(--accent-tint);padding:3px 8px;border-radius:7px;flex-shrink:0"></span><span id="ef-skr-name" style="font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></span></span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9599A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <div id="ef-skr-panel" class="bs-panel" hidden>
+            <div style="display:flex;align-items:center;gap:9px;padding:8px 10px 10px"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#9599A8" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.2-3.2"/></svg><input id="ef-skr-q" oninput="bsSkrFilter()" placeholder="Konto suchen…" style="flex:1;border:none;outline:none;font:400 14px var(--font-ui);background:transparent"></div>
+            <div id="ef-skr-list"></div>
+          </div>
+        </div>
+        {# Steuer + Privatanteil #}
+        <div style="display:grid;grid-template-columns:1.5fr 1fr;gap:18px;align-items:start">
+          <div>
+            <label style="display:block;font-size:13px;font-weight:600;color:#3C3E49;margin-bottom:8px">Steuer</label>
+            <div class="row" style="flex-wrap:wrap;gap:6px" id="ef-tax">
+              <button type="button" class="bs-pill" data-v="0" data-k="domestic" onclick="bsTax(this)">ohne USt.</button>
+              <button type="button" class="bs-pill" data-v="19" data-k="domestic" onclick="bsTax(this)">19% VSt.</button>
+              <button type="button" class="bs-pill" data-v="7" data-k="domestic" onclick="bsTax(this)">7% VSt.</button>
+              <button type="button" class="bs-pill" data-v="19i" data-k="domestic" onclick="bsTax(this)">19% USt.</button>
+              <button type="button" class="bs-pill" data-v="19" data-k="rc_eu" onclick="bsTax(this)">§13b EU</button>
+              <button type="button" class="bs-pill" data-v="19" data-k="rc_other" onclick="bsTax(this)">§13b Drittland</button>
+              <button type="button" class="bs-pill" data-v="19" data-k="ig_erwerb" onclick="bsTax(this)">i.g. Erwerb</button>
+              <button type="button" class="bs-pill" data-v="19" data-k="import" onclick="bsTax(this)">Einfuhr-USt.</button>
+            </div>
+            <p class="hint" id="ef-tax-hint" style="margin:8px 0 0;font-size:11.5px"></p>
+          </div>
+          <div>
+            <label style="display:block;font-size:13px;font-weight:600;color:#3C3E49;margin-bottom:8px">Privatanteil %</label>
+            <div class="row" style="gap:8px;padding:9px 14px;border-radius:12px;border:1.5px solid var(--field-border);background:var(--surface)">
+              <input name="private_share" id="ef-private" value="0" class="num" style="flex:1;border:none;outline:none;font-family:var(--font-display);font-weight:600;font-size:18px;background:transparent;min-width:0">
+              <span class="num" style="font-size:15px;color:var(--ink-3)">%</span>
+            </div>
+          </div>
+        </div>
+        {# Rechnung #}
+        <div id="ef-inv-wrap" style="position:relative" hidden>
+          <label style="display:block;font-size:13px;font-weight:600;color:#3C3E49;margin-bottom:8px">Rechnung zuordnen</label>
+          <div class="bs-trigger" onclick="bsToggle('inv')">
+            <span id="ef-inv-label" style="font-size:15px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">Rechnung wählen…</span>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#9599A8" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m6 9 6 6 6-6"/></svg>
+          </div>
+          <div id="ef-inv-panel" class="bs-panel" hidden>
+            <div class="bs-opt" onclick="bsPickInv('','Rechnung wählen…')"><span style="font-size:14px;color:var(--ink-3)">— keine —</span></div>
+            {% for i in inv_options %}<div class="bs-opt" onclick="bsPickInv('{{ i['id'] }}', '{{ i['number'] }} · {{ i['customer_name'][:20]|replace("'", " ") }}')"><span class="num" style="font-size:12px;font-weight:600;color:var(--ink-2);width:78px;flex-shrink:0">{{ i['number'] }}</span><span style="font-size:14px;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ i['customer_name'][:24] }}</span><span class="num" style="font-size:12.5px;color:var(--ink-3)">{{ i['gross']|eur }}</span></div>{% endfor %}
+          </div>
+        </div>
+      </div>
+      <div class="row" style="justify-content:space-between;gap:10px;padding:20px 24px">
+        <label class="row" style="gap:8px;font-size:13px;color:var(--ink-2);cursor:pointer"><input type="checkbox" name="save_rule" checked style="width:15px;height:15px;accent-color:var(--ink)">Regel merken</label>
+        <div class="row" style="gap:10px"><button class="btn btn--outline" type="button" onclick="closeModal('edit-modal')">Abbrechen</button><button class="btn btn--primary" type="submit">Speichern</button></div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Zahlung hinzufügen ───────────────────────────────────────────── #}
+<div id="add-modal" class="scrim" hidden>
+  <div class="modal">
+    <div class="modal__head"><h2>Zahlung hinzufügen</h2>
+      <button class="iconbtn" type="button" onclick="closeModal('add-modal')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal__body">
+      <form method="post" action="{{ url_for('zahlungen_manual') }}" class="stack">
+        <div class="row" style="gap:12px">
+          <div class="field" style="flex:1"><label>Datum</label><input class="input" type="date" name="date" value="{{ today }}"></div>
+          <div class="field" style="flex:1"><label>Richtung</label><select class="select" name="direction"><option value="in">Eingang +</option><option value="out">Ausgang −</option></select></div>
+        </div>
+        <div class="field"><label>Beschreibung</label><input class="input" name="description" placeholder="z. B. Barzahlung Kunde X"></div>
+        <div class="row" style="gap:12px">
+          <div class="field" style="flex:1"><label>Betrag</label><input class="input" name="amount" placeholder="0,00"></div>
+          <div class="field" style="width:120px"><label>Währung</label><select class="select" name="currency">{% for c in fx_currencies %}<option value="{{ c }}" {{ 'selected' if c==home_currency }}>{{ c }}</option>{% endfor %}</select></div>
+        </div>
+        <div class="field"><label>Zahlungsart</label>
+          <select class="select" name="method">
+            <option value="Kasse">Kasse (Bar)</option>
+            <option value="Wallet / Krypto">Wallet / Krypto</option>
+            <option value="Überweisung">Überweisung</option>
+            <option value="PayPal">PayPal</option>
+            <option value="Lastschrift">Lastschrift</option>
+            <option value="Sonstiges">Sonstiges</option>
+          </select></div>
+        <div class="row" style="justify-content:flex-end;gap:10px;margin-top:4px">
+          <button class="btn btn--ghost" type="button" onclick="closeModal('add-modal')">Abbrechen</button>
+          <button class="btn btn--primary" type="submit">Anlegen</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── CSV importieren ──────────────────────────────────────────────── #}
+<div id="import-modal" class="scrim" hidden>
+  <div class="modal">
+    <div class="modal__head"><h2>Revolut-Export importieren</h2>
+      <button class="iconbtn" type="button" onclick="closeModal('import-modal')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal__body">
+      <form method="post" action="{{ url_for('zahlungen_import') }}" enctype="multipart/form-data" class="stack">
+        <input class="input" type="file" name="file" accept=".csv,text/csv" required style="padding:9px 11px">
+        <p class="muted" style="font-size:13px;margin:0">Duplikate werden erkannt, Eingänge automatisch Rechnungen zugeordnet, der Export landet unter „Dokumente".</p>
+        <div class="row" style="justify-content:flex-end;gap:10px"><button class="btn btn--ghost" type="button" onclick="closeModal('import-modal')">Abbrechen</button><button class="btn btn--primary" type="submit">Importieren</button></div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── Split-Modal ──────────────────────────────────────────────────── #}
+<div id="split-modal" class="scrim" hidden>
+  <div class="modal">
+    <div class="modal__head"><h2>Split buchen</h2><button class="iconbtn" onclick="closeModal('split-modal')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button></div>
+    <div class="modal__body">
+      <form id="split-form" method="post" class="stack">
+        <p class="muted" style="font-size:13.5px;margin:0">Betrag auf mehrere Betriebsausgaben aufteilen. Gesamt: <span class="num" id="split-total"></span></p>
+        <div id="split-rows" class="stack" style="gap:10px"></div>
+        <div><button type="button" class="btn btn--ghost btn--sm" onclick="addSplitRow()">+ Position</button></div>
+        <div class="row" style="justify-content:space-between;align-items:center;border-top:1px solid var(--line-3);padding-top:12px">
+          <span class="muted" style="font-size:13px">Zugewiesen: <span class="num" id="split-sum">0,00</span></span>
+          <button class="btn btn--primary" type="submit">Split speichern</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+{# ── Bulk-Bar ─────────────────────────────────────────────────────── #}
+<form id="bulkform" method="post" action="{{ url_for('zahlungen_bulk') }}">
+  <input type="hidden" name="ids" id="bulk_ids"><input type="hidden" name="action" id="bulk_action">
+  <input type="hidden" name="back" value="all">
+  <div id="bulkbar" style="display:none;position:fixed;bottom:22px;left:50%;transform:translateX(-50%);z-index:800;background:var(--ink);color:var(--surface);border-radius:var(--r-pill);box-shadow:var(--shadow-lg);padding:10px 12px 10px 20px;gap:14px;align-items:center" class="row">
+    <span id="bulk_count" style="font-size:13.5px;font-weight:600"></span>
+    <select id="bulk_sel" class="select" style="width:auto">
+      <option value="privatentnahme">Privatentnahme</option><option value="gebuehr">Bankgebühr</option>
+      <option value="einnahme_sonstige">sonstige Einnahme</option><option value="ignorieren">ignorieren</option>
+    </select>
+    <button class="btn btn--accent btn--sm" type="button" onclick="bulkApply()">Anwenden</button>
+  </div>
+</form>
+
+{% endblock %}
+{% block scripts %}
+<style>
+  .tx-item .txn{ cursor:pointer; }
+  .tx-item.open .chev{ transform:rotate(180deg); color:var(--ink); }
+  .skrbox{ width:100%; text-align:left; border:1px solid var(--field-border); border-radius:9px; padding:6px 10px; background:var(--surface); cursor:pointer; }
+  .skrbox:hover{ border-color:var(--ink); }
+  .skr-assign{ width:100%; text-align:left; cursor:pointer; border:1px dashed #C9C6BB; border-radius:9px; padding:7px 12px; background:transparent; color:var(--ink-2); font:500 12px var(--font-ui); }
+  .skr-assign:hover{ border-color:var(--ink); color:var(--ink); }
+  .bs-seg{ flex:1; cursor:pointer; border:none; font:600 13.5px var(--font-ui); padding:9px; border-radius:9px; background:transparent; color:var(--ink-2); }
+  .bs-seg.on{ background:var(--surface); color:var(--ink); box-shadow:0 1px 3px rgba(20,18,10,.12); }
+  .bs-pill{ cursor:pointer; font:600 12.5px var(--font-ui); padding:8px 12px; border-radius:8px; background:var(--surface); color:#3C3E49; border:1px solid var(--field-border); }
+  .bs-pill.on{ background:var(--ink); color:#fff; border-color:var(--ink); }
+  .bs-trigger{ display:flex; align-items:center; justify-content:space-between; gap:10px; padding:12px 15px; border-radius:12px; background:var(--surface); cursor:pointer; border:1.5px solid var(--field-border); }
+  .bs-trigger:hover{ border-color:var(--ink); }
+  .bs-panel{ position:absolute; left:0; right:0; top:100%; margin-top:6px; z-index:5; background:var(--surface); border:1px solid var(--line-2); border-radius:14px; box-shadow:var(--shadow-lg); padding:6px; max-height:240px; overflow-y:auto; }
+  .bs-opt{ display:flex; align-items:center; gap:10px; padding:9px 10px; border-radius:10px; cursor:pointer; }
+  .bs-opt:hover{ background:var(--surface-2); }
+  .bs-opt.on{ background:var(--accent-tint); }
+</style>
+<script>
+  let txFilterKind = 'all';
+  function txToggle(rowEl){ const it=rowEl.closest('.tx-item'); it.classList.toggle('open'); it.querySelector('.tx-detail').hidden = !it.classList.contains('open'); }
+  function txChip(btn){ document.querySelectorAll('.chip[data-filter]').forEach(c=>c.classList.remove('chip--active')); btn.classList.add('chip--active'); txFilterKind=btn.dataset.filter; txFilter(); }
+  function txFilter(){
+    const q=(document.getElementById('tx-search').value||'').toLowerCase();
+    let anyShown=false;
+    document.querySelectorAll('.tx-day').forEach(day=>{
+      let shown=0;
+      day.querySelectorAll('.tx-item').forEach(it=>{
+        let ok=true;
+        if(txFilterKind==='in' && it.dataset.kind!=='in') ok=false;
+        if(txFilterKind==='out' && it.dataset.kind!=='out') ok=false;
+        if(txFilterKind==='uncat' && it.dataset.uncat!=='1') ok=false;
+        if(ok && q && !it.dataset.text.includes(q)) ok=false;
+        it.style.display = ok?'':'none'; if(ok){shown++;anyShown=true;}
+      });
+      day.style.display = shown?'':'none';
+    });
+    document.getElementById('tx-empty').style.display = anyShown?'none':'block';
+  }
+  // ── Buchungssatz-Modal ──
+  let bsSeg='expense';
+  function bsSkrItems(){ return SPLIT_ACCOUNTS.map(a=>{ const i=a.indexOf(' - '); return {no:i>=0?a.slice(0,i):a, name:i>=0?a.slice(i+3):'', full:a}; }); }
+  function bsAction(btn){ bsSeg=btn.dataset.a; document.querySelectorAll('.bs-seg').forEach(b=>b.classList.toggle('on', b===btn));
+    document.getElementById('ef-inv-wrap').hidden = bsSeg!=='income';
+    document.getElementById('ef-erstattung-hint').hidden = !(window._efIncome && bsSeg==='expense'); }
+  function bsToggle(w){ const p=document.getElementById('ef-'+w+'-panel'); const o=document.getElementById('ef-'+(w==='skr'?'inv':'skr')+'-panel'); if(o)o.hidden=true;
+    p.hidden=!p.hidden; if(!p.hidden && w==='skr'){ const q=document.getElementById('ef-skr-q'); q.value=''; bsSkrFilter(); setTimeout(()=>q.focus(),20); } }
+  function bsSkrFilter(){ const q=(document.getElementById('ef-skr-q').value||'').toLowerCase(); const cur=document.getElementById('ef-category').value;
+    document.getElementById('ef-skr-list').innerHTML = bsSkrItems().filter(k=>!q||k.full.toLowerCase().includes(q)).map(k=>
+      '<div class="bs-opt'+(k.full===cur?' on':'')+'" onclick="bsPickSkr(this)" data-no="'+k.no+'" data-name="'+k.name+'" data-full="'+k.full.replace(/"/g,'&quot;')+'"><span class="num" style="font-size:12px;font-weight:600;color:var(--ink-2);width:48px;flex-shrink:0">'+k.no+'</span><span style="font-size:14px;flex:1;min-width:0">'+k.name+'</span>'+(k.full===cur?'<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--accent-deep)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>':'')+'</div>').join(''); }
+  function bsPickSkr(el){ document.getElementById('ef-category').value=el.dataset.full;
+    document.getElementById('ef-skr-no').textContent=el.dataset.no; document.getElementById('ef-skr-name').textContent=el.dataset.name;
+    document.getElementById('ef-skr-panel').hidden=true;
+    const no=parseInt(el.dataset.no,10);               // Bestands-/Privatkonto (1000–2999) -> ohne USt
+    if(no>=1000 && no<=2999){ const pill=document.querySelector('#ef-tax .bs-pill[data-v="0"]'); if(pill) bsTax(pill); } }
+  const VK_HINT = {
+    domestic:'', rc_eu:'Kz 46/47 – Steuer selbst berechnet, zugleich Vorsteuer (Kz 67).',
+    rc_other:'Kz 84/85 – Drittland oder Bauleistung; zugleich Vorsteuer (Kz 67).',
+    ig_erwerb:'Kz 89/93 – Erwerb von Waren aus der EU; Vorsteuer in Kz 61.',
+    import:'Kz 62 – am Zoll entrichtete Einfuhrumsatzsteuer.'};
+  function bsTax(btn){ document.querySelectorAll('#ef-tax .bs-pill').forEach(b=>b.classList.toggle('on', b===btn));
+    document.getElementById('ef-vat').value = btn.dataset.v==='19i'?'19':btn.dataset.v;
+    const k = btn.dataset.k||'domestic';
+    document.getElementById('ef-vatkind').value = k;
+    document.getElementById('ef-tax-hint').textContent = VK_HINT[k]||''; }
+  function bsPickInv(id,label){ document.getElementById('ef-invoiceid').value=id; const l=document.getElementById('ef-inv-label');
+    l.textContent=label; l.style.color=id?'var(--ink)':'var(--ink-3)'; document.getElementById('ef-inv-panel').hidden=true; }
+  function bsSubmit(){ let action;
+    if(bsSeg==='expense'){ action='expense'; if(!document.getElementById('ef-category').value){ klarAlert('Bitte ein SKR-Konto wählen.'); return false; } }
+    else if(bsSeg==='income'){ action = document.getElementById('ef-invoiceid').value ? 'invoice' : 'einnahme_sonstige'; }
+    else { action='privatentnahme'; }
+    document.getElementById('ef-action').value=action; return true; }
+  function openEdit(el){ const d=el.dataset;
+    document.getElementById('edit-form').action = d.kind==='expense'
+      ? '/expenses/'+d.eid+'/update' : '/zahlungen/tx/'+d.tid+'/set';
+    document.getElementById('ef-txn').textContent=d.title||'';
+    window._efIncome = d.income==='1';                 // Eingang? -> „Betriebsausgabe" = Erstattung
+    bsSeg = d.action==='privatentnahme'?'private' : ((d.action==='invoice'||d.action==='einnahme_sonstige')?'income':'expense');
+    document.querySelectorAll('.bs-seg').forEach(b=>b.classList.toggle('on', b.dataset.a===bsSeg));
+    document.getElementById('ef-inv-wrap').hidden = bsSeg!=='income';
+    document.getElementById('ef-erstattung-hint').hidden = !(window._efIncome && bsSeg==='expense');
+    const full=d.cat||SPLIT_ACCOUNTS[0]||''; const i=full.indexOf(' - ');
+    document.getElementById('ef-category').value=full;
+    document.getElementById('ef-skr-no').textContent=i>=0?full.slice(0,i):full;
+    document.getElementById('ef-skr-name').textContent=i>=0?full.slice(i+3):'';
+    const vat=d.vat||'19', vk=d.vatkind||'domestic';
+    document.getElementById('ef-vat').value=vat;
+    document.getElementById('ef-vatkind').value=vk;
+    // Bei den selbst zu versteuernden Arten entscheidet die USt-Art, sonst der Satz.
+    const pill = vk!=='domestic'
+      ? document.querySelector('#ef-tax .bs-pill[data-k="'+vk+'"]')
+      : [...document.querySelectorAll('#ef-tax .bs-pill')].find(b=>b.dataset.k==='domestic' && b.dataset.v===vat && b.dataset.v!=='19i');
+    document.querySelectorAll('#ef-tax .bs-pill').forEach(b=>b.classList.toggle('on', b===pill));
+    document.getElementById('ef-tax-hint').textContent = VK_HINT[vk]||'';
+    document.getElementById('ef-private').value=d.private||'0';
+    document.getElementById('ef-skr-panel').hidden=true; document.getElementById('ef-inv-panel').hidden=true;
+    openModal('edit-modal');
+  }
+  function openEditFromDetail(el){ openEdit(el); }
+  // ── Split ──
+  const SPLIT_ACCOUNTS = [{% for a in expense_accounts %}"{{ a }}"{{ ',' if not loop.last }}{% endfor %}];
+  function splitOptions(){ return SPLIT_ACCOUNTS.map(a=>'<option value="'+a+'">'+a+'</option>').join(''); }
+  function addSplitRow(){
+    const d=document.createElement('div'); d.className='row split-row'; d.style.gap='8px';
+    d.innerHTML='<select class="select" name="split_category" style="flex:2">'+splitOptions()+'</select>'
+      +'<input class="input num" name="split_amount" placeholder="0,00" style="width:110px" oninput="splitSum()">'
+      +'<select class="select" name="split_vat" style="width:96px"><option value="19">19%</option><option value="7">7%</option><option value="0">0%</option></select>'
+      +'<button class="iconbtn" type="button" onclick="this.parentElement.remove();splitSum()"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>';
+    document.getElementById('split-rows').appendChild(d);
+    if(window.klarEnhanceSelects) klarEnhanceSelects(d);
+  }
+  function splitSum(){ let s=0; document.querySelectorAll('#split-rows input[name=split_amount]').forEach(i=>{ s+=parseFloat((i.value||'0').replace(',','.'))||0; });
+    document.getElementById('split-sum').textContent = s.toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2})+' €'; }
+  function openSplit(el){
+    document.getElementById('split-form').action='/zahlungen/tx/'+el.dataset.tid+'/split';
+    document.getElementById('split-total').textContent=el.dataset.amount+' €';
+    document.getElementById('split-rows').innerHTML=''; addSplitRow(); addSplitRow(); splitSum();
+    openModal('split-modal');
+  }
+  function txBulk(){
+    const ids=[...document.querySelectorAll('.txcheck:checked')];
+    const bar=document.getElementById('bulkbar');
+    if(ids.length){ bar.style.display='flex'; document.getElementById('bulk_count').textContent=ids.length+' ausgewählt'; }
+    else bar.style.display='none';
+  }
+  function bulkApply(){
+    const ids=[...document.querySelectorAll('.txcheck:checked')].map(c=>c.value);
+    if(!ids.length) return;
+    document.getElementById('bulk_ids').value=ids.join(',');
+    document.getElementById('bulk_action').value=document.getElementById('bulk_sel').value;
+    document.getElementById('bulkform').submit();
+  }
+</script>
+{% endblock %}

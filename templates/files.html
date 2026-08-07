@@ -1,0 +1,271 @@
+{% extends "base_klar.html" %}
+{% block title %}Dokumente · Klar{% endblock %}
+{% block body %}
+
+<div class="kl-pagehead">
+  <div><h1>Dokumente</h1><p class="sub" id="doc-sub">{{ counts.to_review }} zu prüfen · {{ counts.matched }} verbucht</p></div>
+  <button class="btn btn--primary" onclick="document.getElementById('doc-file').click()">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg>Upload</button>
+</div>
+
+<form id="doc-form" method="post" action="{{ url_for('documents_upload') }}" enctype="multipart/form-data">
+  <input type="file" id="doc-file" name="file" accept=".pdf,.png,.jpg,.jpeg" multiple hidden onchange="document.getElementById('doc-form').submit()">
+  <div id="dropzone" onclick="document.getElementById('doc-file').click()"
+       style="border:2px dashed var(--field-border);border-radius:20px;padding:40px 24px;display:flex;flex-direction:column;align-items:center;gap:16px;cursor:pointer;background:var(--surface-2);transition:border-color .15s">
+    <div style="width:60px;height:60px;border-radius:17px;background:var(--surface);border:1px solid var(--line-2);display:flex;align-items:center;justify-content:center;color:var(--accent-deep);box-shadow:var(--shadow-md)"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg></div>
+    <div style="text-align:center">
+      <div style="font-size:17px;font-weight:600">Belege &amp; Rechnungen hierher ziehen</div>
+      <div class="muted" style="font-size:13.5px;margin-top:3px">PDF, JPG oder PNG · das LLM erkennt Anbieter, Betrag &amp; Datum</div>
+    </div>
+    <span class="btn btn--accent">Dateien wählen</span>
+  </div>
+</form>
+
+<div class="row" style="gap:8px;flex-wrap:wrap;margin:20px 0 14px">
+  <button class="chip chip--active" data-s="all" onclick="docChip(this)">Alle <span style="opacity:.6">{{ counts.all }}</span></button>
+  <button class="chip" data-s="to_review" onclick="docChip(this)">Zu prüfen <span style="opacity:.6">{{ counts.to_review }}</span></button>
+  <button class="chip" data-s="matched" onclick="docChip(this)">Verbucht <span style="opacity:.6">{{ counts.matched }}</span></button>
+  <button class="chip" data-s="processing" onclick="docChip(this)">In Arbeit <span style="opacity:.6">{{ counts.processing }}</span></button>
+</div>
+
+<div class="card" style="padding:0;overflow:hidden">
+  {% for d in docs %}
+  <div class="doc-row" data-status="{{ d['status'] }}"
+       style="display:grid;grid-template-columns:52px minmax(0,1.3fr) minmax(0,1fr) 150px;align-items:center;gap:16px;padding:16px 20px;border-bottom:1px solid var(--line-3);cursor:pointer"
+       onclick="openDoc(this)"
+       data-id="{{ d['id'] }}" data-name="{{ d['filename'] }}" data-vendor="{{ d['vendor'] or '' }}"
+       data-amount="{{ ('%.2f'|format(d['amount'])) if d['amount'] is not none else '' }}"
+       data-date="{{ d['doc_date'] or '' }}" data-file="{{ url_for('document_file', did=d['id']) }}"
+       data-suggest="{{ d['suggest_tx'] or '' }}"
+       {% set r = doc_rules.get(d['id']) %}{% if r %}data-rule-cat="{{ r['category'] }}" data-rule-vat="{{ r['vat_rate'] }}" data-rule-priv="{{ r['private_share'] }}"{% endif %}>
+    <div style="width:40px;height:50px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:10px;background:{{ 'var(--coral-tint)' if d['filetype']=='pdf' else 'var(--azure-tint)' }};color:{{ 'var(--coral-deep)' if d['filetype']=='pdf' else 'var(--azure-deep)' }}">{{ d['filetype']|upper }}</div>
+    <div style="min-width:0"><div style="font-size:14.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d['filename'] }}</div><div class="muted" style="font-size:12.5px">{{ d['created_at'][:10]|de_date }}</div></div>
+    <div style="min-width:0">
+      {% if d['status']=='matched' %}
+        <div class="row" style="gap:6px;color:var(--green-deep);font-size:13px;font-weight:600"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>{{ d['vendor'] or 'verbucht' }}</div>
+      {% elif d['suggest_tx'] and tx_map.get(d['suggest_tx']) %}
+        <div class="muted" style="font-size:12px">Vorschlag</div><div style="font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ tx_map[d['suggest_tx']].desc }} · {{ tx_map[d['suggest_tx']].amount }}</div>
+      {% elif d['vendor'] or d['amount'] is not none %}
+        <div style="font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">{{ d['vendor'] or '—' }}</div>
+        <div class="num muted" style="font-size:12.5px">{% if d['amount'] is not none %}{{ d['amount']|eur }}{% endif %}{% if d['doc_date'] %} · {{ d['doc_date']|de_date }}{% endif %}</div>
+      {% else %}<div class="muted" style="font-size:12.5px">nicht erkannt – manuell prüfen</div>{% endif %}
+    </div>
+    <div style="display:flex;justify-content:flex-end" onclick="event.stopPropagation()">
+      {% if d['status']=='matched' %}<span class="status status--paid">Verbucht</span>
+      {% else %}<button class="btn btn--outline btn--sm" onclick="openDoc(this.closest('.doc-row'))">Prüfen &amp; buchen</button>{% endif %}
+    </div>
+  </div>
+  {% else %}<div class="muted" style="padding:48px;text-align:center;font-size:14px">Noch keine Dokumente. Zieh eine Datei in die Zone oben.</div>{% endfor %}
+  <div id="doc-empty" class="muted" style="padding:48px;text-align:center;font-size:14px;display:none">Nichts in diesem Filter.</div>
+</div>
+<p class="muted" style="font-size:12.5px;margin:14px 2px 0">Alles bleibt lokal auf diesem Gerät.</p>
+
+{# ── Review & Match Modal ── #}
+<div id="doc-modal" class="scrim" hidden style="align-items:flex-start;padding-top:40px">
+  <button id="dm-prev" class="dm-chev" onclick="navDoc(-1)" title="Vorheriger Beleg" style="left:max(16px,calc(50% - 560px))"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 6l-6 6 6 6"/></svg></button>
+  <button id="dm-next" class="dm-chev" onclick="navDoc(1)" title="Nächster Beleg" style="right:max(16px,calc(50% - 560px))"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+  <div class="modal modal--wide">
+    <div class="modal__head" style="border-bottom:1px solid var(--line-3)">
+      <div class="row" style="gap:12px"><div style="width:38px;height:38px;border-radius:11px;background:var(--accent-tint);color:var(--accent-deep);display:flex;align-items:center;justify-content:center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h9l5 5v13H5z"/><path d="M14 3v5h5"/></svg></div>
+        <div><h2 style="font-size:16px">Prüfen &amp; buchen <span id="dm-count" class="muted num" style="font-size:12.5px;font-weight:500"></span></h2><div class="muted" id="dm-name" style="font-size:12.5px"></div></div></div>
+      <button class="iconbtn" onclick="closeModal('doc-modal')"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg></button>
+    </div>
+    <div class="modal__body" style="padding-top:18px">
+      <div class="row" style="gap:8px;align-items:center;font-size:12px;font-weight:600;color:var(--azure-deep);background:var(--azure-tint);padding:6px 11px;border-radius:999px;width:fit-content;margin-bottom:18px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l1.9 4.7L18.6 9l-4.7 1.9L12 15.6 10.1 10.9 5.4 9l4.7-1.3z"/></svg>Von Klar AI vorbefüllt · bitte prüfen</div>
+      <form id="dm-form" method="post" class="stack">
+        <div class="field"><label>An Zahlung zuordnen <span class="muted" id="dm-tx-hint" style="font-weight:500"></span></label>
+          <select class="select" name="tx_id" id="dm-tx">
+            <option value="">— keine passende Zahlung (als eigene Ausgabe buchen) —</option>
+            {% for t in open_txs %}<option value="{{ t['id'] }}">{{ t['date']|de_date }} · {{ (t['description'] or '—')[:32] }} · {{ (t['amount_home'] if t['amount_home'] is not none else t['amount'])|eur }}</option>{% endfor %}
+          </select></div>
+        <div class="grid-2">
+          <div class="field" style="grid-column:1 / -1"><label>Anbieter</label><input class="input" name="vendor" id="dm-vendor" disabled></div>
+          <div class="field"><label>Betrag (brutto)</label><input class="input num" id="dm-amount" disabled></div>
+          <div class="field"><label>Belegdatum</label><input class="input" id="dm-date" disabled></div>
+        </div>
+        <div id="dm-single" class="grid-2">
+          <div class="field"><label>Buchungssatz (SKR03)</label>
+            <select class="select" name="category">{% for a in expense_accounts %}<option value="{{ a }}">{{ a }}</option>{% endfor %}</select></div>
+          <div class="field"><label>Steuersatz</label>
+            <select class="select" name="vat_rate"><option value="19">19% VSt.</option><option value="7">7% VSt.</option><option value="0">ohne USt./VSt.</option></select></div>
+          <div class="field"><label>Privatanteil % <span id="dm-rule-hint" class="muted" style="display:none;align-items:center;gap:4px;font-weight:500;font-size:11px;color:var(--accent-deep)">· für diesen Anbieter gemerkt</span></label><input class="input" name="private_share" value="0"></div>
+        </div>
+        {# Split / Unterbuchungen #}
+        <div style="margin-top:2px"><button type="button" id="dm-split-btn" class="btn btn--outline btn--sm" style="width:100%">＋ Auf mehrere Buchungssätze aufteilen</button></div>
+        <div id="dm-split" hidden style="border:1px solid var(--line-2);border-radius:14px;padding:14px;background:var(--wash)">
+          <div style="display:grid;grid-template-columns:1fr 100px 92px 62px 30px;gap:8px;font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-3);margin-bottom:8px;padding:0 2px">
+            <span>Konto (SKR03)</span><span>Betrag</span><span>Steuer</span><span>Priv%</span><span></span>
+          </div>
+          <div id="dm-split-lines"></div>
+          <div class="row" style="justify-content:space-between;align-items:center;margin-top:10px">
+            <button type="button" id="dm-addline" class="btn btn--outline btn--sm">＋ Position</button>
+            <div id="dm-split-sum" class="num" style="font-size:13px"></div>
+          </div>
+        </div>
+        <input type="hidden" name="lines" id="dm-lines">
+        <div class="row" style="justify-content:space-between;margin-top:6px">
+          <div class="row" style="gap:10px">
+            <a class="btn btn--outline btn--sm" id="dm-open" href="#" target="_blank">Original öffnen</a>
+            <button class="btn btn--danger btn--sm" type="button" onclick="docDelete()">Löschen</button>
+          </div>
+          <div class="row" style="gap:10px">
+            <button class="btn btn--outline btn--sm" type="button" id="dm-skip" onclick="navDoc(1)">Überspringen</button>
+            <button class="btn btn--primary" type="submit" id="dm-book">Verbuchen &amp; weiter</button>
+          </div>
+        </div>
+      </form>
+      <form id="dm-del" method="post" style="display:none"></form>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<style>
+  #dropzone.drag{ border-color:var(--accent); background:var(--accent-tint); }
+  .dm-chev{ position:fixed; top:50%; transform:translateY(-50%); z-index:60; width:46px; height:46px; border-radius:50%;
+    border:1px solid var(--line-2); background:var(--surface); color:var(--ink-2); box-shadow:var(--shadow-md);
+    display:none; align-items:center; justify-content:center; cursor:pointer; transition:background .12s,color .12s }
+  .dm-chev:hover{ background:var(--ink); color:#fff; border-color:var(--ink) }
+</style>
+<script>
+  let reviewRows=[], curIdx=-1;
+  const learnedRules={};   // in dieser Sitzung gelernte Anbieter-Regeln (vendor -> {category,vat_rate,private_share})
+  const $=id=>document.getElementById(id);
+  function refreshReview(){ reviewRows=[...document.querySelectorAll('.doc-row')].filter(r=>r.dataset.status==='to_review'); }
+  function updateCounts(){ const rows=[...document.querySelectorAll('.doc-row')];
+    const c={all:rows.length,to_review:0,matched:0,processing:0};
+    rows.forEach(r=>{ c[r.dataset.status]=(c[r.dataset.status]||0)+1; });
+    ['all','to_review','matched','processing'].forEach(k=>{ const el=document.querySelector('.chip[data-s="'+k+'"] span'); if(el) el.textContent=c[k]; });
+    const sub=$('doc-sub'); if(sub) sub.textContent=c.to_review+' zu prüfen · '+c.matched+' verbucht'; }
+  function updateNav(){ const n=reviewRows.length;
+    $('dm-count').textContent=(curIdx>=0 && n>0)?('· '+(curIdx+1)+' / '+n):'';
+    $('dm-prev').style.display=(curIdx>0)?'flex':'none';
+    $('dm-next').style.display=(curIdx>=0 && curIdx<n-1)?'flex':'none';
+    $('dm-skip').style.display=(curIdx>=0 && curIdx<n-1)?'':'none'; }
+  function docChip(btn){ document.querySelectorAll('.chip[data-s]').forEach(c=>c.classList.remove('chip--active')); btn.classList.add('chip--active');
+    const s=btn.dataset.s; let any=false;
+    document.querySelectorAll('.doc-row').forEach(r=>{ const ok=(s==='all'||r.dataset.status===s); r.style.display=ok?'grid':'none'; if(ok)any=true; });
+    $('doc-empty').style.display=any?'none':'block'; }
+  function fillModal(r){ const d=r.dataset;
+    $('dm-name').textContent=d.name;
+    $('dm-vendor').value=d.vendor||'';
+    $('dm-amount').value=d.amount?(d.amount+' €'):'—';
+    $('dm-date').value=d.date||'—';
+    $('dm-form').action='/documents/'+d.id+'/confirm';
+    $('dm-del').action='/documents/'+d.id+'/delete';
+    $('dm-open').href=d.file;
+    const tx=$('dm-tx'); tx.value=d.suggest||''; tx.dispatchEvent(new Event('change'));
+    $('dm-tx-hint').textContent = d.suggest ? '· Vorschlag von Klar' : '';
+    // Buchungsfelder je Beleg setzen – gelernte Anbieter-Regel vorbefüllen, sonst Standard
+    const form=$('dm-form');
+    const catSel=form.querySelector('[name="category"]'), vatSel=form.querySelector('[name="vat_rate"]'), priv=form.querySelector('[name="private_share"]');
+    let rule=null;
+    if(d.ruleCat || d.rulePriv!=null) rule={category:d.ruleCat||'', vat_rate:d.ruleVat||'', private_share:d.rulePriv!=null?d.rulePriv:0};
+    else if(d.vendor && learnedRules[d.vendor]) rule=learnedRules[d.vendor];
+    priv.value = rule ? rule.private_share : '0';
+    // Konto: Regel anwenden, sonst auf erste Option zurücksetzen (kein Übernehmen vom Vor-Beleg)
+    let catMatched=false;
+    if(rule && rule.category){ [...catSel.options].forEach(o=>{ if(o.value===rule.category){ catSel.value=rule.category; catMatched=true; } }); }
+    if(!catMatched) catSel.selectedIndex=0;
+    vatSel.value = (rule && rule.vat_rate) ? String(rule.vat_rate) : '19';
+    // WICHTIG: change auslösen, damit die aufgewerteten Klar-Dropdowns ihr sichtbares Label aktualisieren
+    catSel.dispatchEvent(new Event('change', {bubbles:true}));
+    vatSel.dispatchEvent(new Event('change', {bubbles:true}));
+    const hint=$('dm-rule-hint'); if(hint) hint.style.display = (rule && catMatched) ? 'inline-flex' : 'none';
+    const book=$('dm-book'); if(book){ const canBook=d.status==='to_review'; book.disabled=!canBook; book.textContent=canBook?'Verbuchen & weiter':'Bereits verbucht'; }
+    // Split-Zustand je Beleg zurücksetzen
+    curGross=parseFloat(d.amount)||0;
+    $('dm-split-lines').innerHTML=''; $('dm-split').hidden=true; $('dm-single').style.display=''; $('dm-lines').value='';
+    $('dm-split-btn').textContent='＋ Auf mehrere Buchungssätze aufteilen';
+    updateNav();
+  }
+  // ── Split / Unterbuchungen ──
+  let curGross=0;
+  const splitAmt=v=>parseFloat((v||'').toString().replace(/\s/g,'').replace(',','.'))||0;
+  const fmtEur=x=>'€'+(x||0).toLocaleString('de-DE',{minimumFractionDigits:2,maximumFractionDigits:2});
+  function updateSplitSum(){ let sum=0; document.querySelectorAll('#dm-split-lines .sl-amt').forEach(i=>sum+=splitAmt(i.value));
+    const diff=sum-curGross;
+    $('dm-split-sum').innerHTML='Summe '+fmtEur(sum)+' / Brutto '+fmtEur(curGross)+
+      (Math.abs(diff)<0.01?' <span style="color:var(--green-deep);font-weight:600">✓</span>':' <span style="color:var(--coral-deep);font-weight:600">Δ '+fmtEur(diff)+'</span>'); }
+  function splitRow(pre){ pre=pre||{}; const row=document.createElement('div'); row.className='dm-split-row';
+    row.style.cssText='display:grid;grid-template-columns:1fr 100px 92px 62px 30px;gap:8px;align-items:center;margin-bottom:8px';
+    row.innerHTML='<select class="select sl-cat">'+$('dm-single').querySelector('[name="category"]').innerHTML+'</select>'
+      +'<input class="input num sl-amt" inputmode="decimal" placeholder="0,00">'
+      +'<select class="select sl-vat">'+$('dm-single').querySelector('[name="vat_rate"]').innerHTML+'</select>'
+      +'<input class="input sl-priv" inputmode="numeric" value="0">'
+      +'<button type="button" class="iconbtn sl-del" title="Entfernen"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>';
+    if(pre.category) row.querySelector('.sl-cat').value=pre.category;
+    if(pre.amount!=null) row.querySelector('.sl-amt').value=pre.amount;
+    if(pre.vat_rate!=null) row.querySelector('.sl-vat').value=String(pre.vat_rate);
+    row.querySelector('.sl-priv').value=(pre.private_share!=null?pre.private_share:'0');
+    row.querySelector('.sl-amt').addEventListener('input',updateSplitSum);
+    row.querySelector('.sl-del').onclick=()=>{ row.remove(); updateSplitSum(); };
+    return row; }
+  function addSplitLine(pre){ const row=splitRow(pre); $('dm-split-lines').appendChild(row);
+    if(window.klarEnhanceSelects) window.klarEnhanceSelects(row);   // native Selects -> Klar-Dropdown + Suche
+    updateSplitSum(); }
+  function toggleSplit(){ const sp=$('dm-split'), on=sp.hidden;
+    if(on){ $('dm-single').style.display='none'; sp.hidden=false;
+      if(!$('dm-split-lines').children.length){
+        const f=$('dm-single');
+        addSplitLine({category:f.querySelector('[name="category"]').value, amount:(curGross?curGross.toFixed(2).replace('.',','):''),
+                      vat_rate:f.querySelector('[name="vat_rate"]').value, private_share:f.querySelector('[name="private_share"]').value});
+        addSplitLine({vat_rate:'0'});
+      }
+      $('dm-split-btn').textContent='− Einzelbuchung verwenden';
+    } else { sp.hidden=true; $('dm-single').style.display=''; $('dm-split-btn').textContent='＋ Auf mehrere Buchungssätze aufteilen'; } }
+  function openDoc(r){ refreshReview(); curIdx=reviewRows.indexOf(r); fillModal(r); openModal('doc-modal'); }
+  function navDoc(delta){ if(curIdx<0) return; const i=curIdx+delta; if(i<0||i>=reviewRows.length) return; curIdx=i; fillModal(reviewRows[i]); }
+  function markMatched(r, vendor){ r.dataset.status='matched';
+    const cells=r.children;   // [icon, name, mid, right]
+    cells[2].innerHTML='<div class="row" style="gap:6px;color:var(--green-deep);font-size:13px;font-weight:600"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>'+(vendor||'verbucht')+'</div>';
+    cells[3].innerHTML='<span class="status status--paid">Verbucht</span>';
+    // im aktuellen Filter „Zu prüfen" ausblenden
+    const active=document.querySelector('.chip--active'); if(active && active.dataset.s==='to_review') r.style.display='none';
+    updateCounts();
+  }
+  async function advanceAfter(r){ const wasIdx=curIdx; refreshReview();
+    if(!reviewRows.length){ closeModal('doc-modal'); return; }
+    curIdx=Math.min(wasIdx, reviewRows.length-1); fillModal(reviewRows[curIdx]); }
+  async function bookDoc(ev){ ev.preventDefault(); if(curIdx<0) return;
+    const form=$('dm-form'), r=reviewRows[curIdx], book=$('dm-book');
+    // Split-Zeilen einsammeln & validieren
+    if(!$('dm-split').hidden){
+      const lines=[]; document.querySelectorAll('#dm-split-lines .dm-split-row').forEach(row=>{
+        const a=splitAmt(row.querySelector('.sl-amt').value); if(a<=0) return;
+        lines.push({category:row.querySelector('.sl-cat').value, amount:a,
+                    vat_rate:row.querySelector('.sl-vat').value, private_share:row.querySelector('.sl-priv').value||0}); });
+      if(!lines.length){ $('dm-split-sum').innerHTML='<span style="color:var(--coral-deep)">Mindestens eine Position mit Betrag angeben.</span>'; return; }
+      const sum=lines.reduce((s,l)=>s+l.amount,0);
+      if(Math.abs(sum-curGross)>=0.01){ $('dm-split-sum').innerHTML='<span style="color:var(--coral-deep);font-weight:600">Summe '+fmtEur(sum)+' ≠ Brutto '+fmtEur(curGross)+'</span>'; return; }
+      $('dm-lines').value=JSON.stringify(lines);
+    } else { $('dm-lines').value=''; }
+    book.disabled=true; book.textContent='Verbuche…';
+    try{ const d=await (await fetch(form.action+'?json=1',{method:'POST',headers:{'Accept':'application/json'},body:new FormData(form)})).json();
+      if(!d.ok){ book.disabled=false; book.textContent='Verbuchen & weiter'; return; }
+      if(d.doc_vendor && d.rule) learnedRules[d.doc_vendor]=d.rule;   // Regel für nächste gleiche Anbieter merken
+      markMatched(r, d.vendor); advanceAfter(r);
+    }catch(e){ book.disabled=false; book.textContent='Verbuchen & weiter'; }
+  }
+  document.addEventListener('DOMContentLoaded',()=>{ $('dm-form').addEventListener('submit',bookDoc);
+    $('dm-split-btn').addEventListener('click',toggleSplit);
+    $('dm-addline').addEventListener('click',()=>addSplitLine()); });
+  async function docDelete(){ const opt={titel:'Dokument löschen', ja:'Löschen', gefahr:true};
+    if(curIdx<0){ if(await klarConfirm('Dieses Dokument wird entfernt.', opt)) $('dm-del').submit(); return; }
+    if(!await klarConfirm('Dieses Dokument wird entfernt.', opt)) return;
+    const r=reviewRows[curIdx];
+    try{ const d=await (await fetch('/documents/'+r.dataset.id+'/delete?json=1',{method:'POST',headers:{'Accept':'application/json'}})).json();
+      if(!d.ok) return; r.remove(); updateCounts(); advanceAfter(r);
+    }catch(e){}
+  }
+  // Pfeiltasten navigieren, wenn das Modal offen ist
+  document.addEventListener('keydown',e=>{ const m=$('doc-modal'); if(!m || m.hasAttribute('hidden')) return;
+    if(e.key==='ArrowLeft') navDoc(-1); else if(e.key==='ArrowRight') navDoc(1); });
+  // Drag & Drop
+  const dz=document.getElementById('dropzone');
+  ['dragover','dragenter'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.add('drag');}));
+  ['dragleave','drop'].forEach(e=>dz.addEventListener(e,ev=>{ev.preventDefault();dz.classList.remove('drag');}));
+  dz.addEventListener('drop',ev=>{ const f=ev.dataTransfer.files; if(f&&f.length){ document.getElementById('doc-file').files=f; document.getElementById('doc-form').submit(); }});
+</script>
+{% endblock %}

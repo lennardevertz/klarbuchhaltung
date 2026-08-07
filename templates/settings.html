@@ -1,0 +1,242 @@
+{% extends "base_klar.html" %}
+{% block title %}Einstellungen · Klar{% endblock %}
+{% block body %}
+
+<div class="kl-pagehead"><div><h1>Einstellungen</h1><p class="sub">Darstellung, Zugänge &amp; Versand</p></div></div>
+
+{# Beta-Hinweis: die App rechnet Steuerzahlen aus, ist aber weder zertifiziert
+   noch geprüft. Das gehört sichtbar an den Anfang der Einstellungen. #}
+<div style="display:flex;gap:12px;align-items:flex-start;max-width:640px;margin-bottom:24px;
+            background:var(--amber-tint);border:1px solid var(--amber);border-radius:12px;padding:14px 16px">
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--amber-deep)" stroke-width="1.9"
+       stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;margin-top:1px">
+    <path d="M12 9v4M12 17v.01M10.3 3.9 2.4 18a1.5 1.5 0 0 0 1.3 2.2h16.6a1.5 1.5 0 0 0 1.3-2.2L13.7 3.9a1.5 1.5 0 0 0-2.6 0z"/>
+  </svg>
+  <div style="font-size:13.5px;line-height:1.6;color:var(--amber-deep)">
+    <strong style="display:block;margin-bottom:3px">Beta – Nutzung auf eigene Gefahr</strong>
+    Dieses Werkzeug ist in Entwicklung, nicht zertifiziert und ersetzt keine
+    Steuerberatung. Prüfe Beträge und Kennziffern vor jeder Abgabe selbst und
+    sichere deine Daten regelmäßig. Für die Richtigkeit deiner Steuererklärung
+    bist du verantwortlich.
+  </div>
+</div>
+
+<div class="row" style="gap:3px;background:var(--surface);border:1px solid var(--line-2);padding:4px;border-radius:12px;margin-bottom:22px;display:inline-flex">
+  {% for id,label in [('appearance','Darstellung'),('preferences','Präferenzen'),('steuer','Steuer'),('llm','LLM'),('email','E-Mail'),('profile','Profil')] %}
+  <button class="btn btn--sm settab" data-tab="{{ id }}" onclick="setTab('{{ id }}')" style="{{ '' if tab==id else 'background:transparent;color:var(--ink-2)' }}">{{ label }}</button>
+  {% endfor %}
+</div>
+
+{# ── Darstellung ── #}
+<div class="tabpane" data-pane="appearance" style="max-width:640px">
+  <div class="card">
+    <form method="post" class="stack">
+      <input type="hidden" name="section" value="appearance">
+      <div class="field"><label>Akzentfarbe</label>
+        <div class="row" style="gap:12px;margin-top:4px">
+          {% for a,hex in [('green','#1FA971'),('azure','#3B6EF5'),('amber','#F0A31A'),('coral','#F5573B')] %}
+          <label style="cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:6px">
+            <input type="radio" name="accent" value="{{ a }}" {{ 'checked' if (s.accent or 'green')==a }} onchange="document.documentElement.dataset.accent='{{ a }}'" style="display:none">
+            <span class="swatch" data-a="{{ a }}" style="width:40px;height:40px;border-radius:12px;background:{{ hex }};box-shadow:0 0 0 3px var(--surface),0 0 0 {{ '5px' if (s.accent or 'green')==a else '0' }} {{ hex }}"></span>
+            <span style="font-size:12px;text-transform:capitalize">{{ a }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="field" style="margin-top:8px"><label>Dichte</label>
+        <select class="select" name="density">
+          <option value="airy" {{ 'selected' if (s.density or 'airy')=='airy' }}>Luftig</option>
+          <option value="compact" {{ 'selected' if s.density=='compact' }}>Kompakt</option>
+        </select></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit">Speichern</button></div>
+    </form>
+  </div>
+</div>
+
+{# ── Präferenzen ── #}
+<div class="tabpane" data-pane="preferences" hidden style="max-width:640px">
+  <div class="card">
+    <form method="post" class="stack">
+      <input type="hidden" name="section" value="preferences">
+      <div class="field"><label>Heimwährung</label>
+        <select class="select" name="home_currency">{% for c in fx_currencies %}<option value="{{ c }}" {{ 'selected' if c==home_currency }}>{{ c }}</option>{% endfor %}</select>
+        <p class="muted" style="font-size:12.5px;margin:7px 0 0">Basis für Berichte/EÜR/USt. Fremdwährung wird über EZB-Kurse umgerechnet.</p></div>
+      <div class="field" style="border-top:1px solid var(--line-3);padding-top:16px"><label>EÜR-Methode</label>
+        <select class="select" name="euer_method">
+          <option value="brutto" {{ 'selected' if s.get('euer_method','brutto')!='netto' }}>Brutto (amtlich – wie Anlage EÜR / Finanzamt)</option>
+          <option value="netto" {{ 'selected' if s.get('euer_method')=='netto' }}>Netto (wirtschaftlich – USt neutral)</option>
+        </select>
+        <p class="muted" style="font-size:12.5px;margin:7px 0 0"><b>Brutto</b> zählt vereinnahmte USt, Vorsteuer, Eigenverbrauch &amp; §13b als Betriebseinnahmen/-ausgaben (identisch mit deiner Steuererklärung). <b>Netto</b> blendet die USt als durchlaufenden Posten aus (nur wirtschaftliche Übersicht). Über die Laufzeit ergeben beide denselben Gewinn.</p></div>
+      <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit">Speichern</button></div>
+    </form>
+  </div>
+</div>
+
+{# ── Steuer / Rücklage ── #}
+<div class="tabpane" data-pane="steuer" hidden style="max-width:640px" id="steuer">
+  <div class="card">
+    <form method="post" class="stack">
+      <input type="hidden" name="section" value="steuer">
+      <div style="font-size:14px;font-weight:600;margin-bottom:2px" id="steuer-ids">Steuerliche Stammdaten</div>
+      <p class="muted" style="font-size:12.5px;margin:0 0 6px">USt-IdNr. &amp; Steuernummer – erscheinen auf deinen Rechnungen. Überschreiben <code>config.toml</code>.</p>
+      <div class="row" style="gap:12px">
+        <div class="field" style="flex:1"><label>USt-IdNr.</label>
+          <input class="input num" name="business_vat_id" value="{{ biz.get('vat_id','') }}" placeholder="DE123456789"></div>
+        <div class="field" style="flex:1"><label>Steuernummer</label>
+          <input class="input num" name="business_tax_number" value="{{ biz.get('tax_number','') }}" placeholder="12/345/67890"></div>
+      </div>
+      <div style="font-size:14px;font-weight:600;margin:12px 0 2px;border-top:1px solid var(--line-3);padding-top:16px">Umsatzsteuer-Voranmeldung</div>
+      <p class="muted" style="font-size:12.5px;margin:0 0 8px">Abgabeturnus ({{ 'monatlich' if cfg_va_period == 'month' else 'vierteljährlich' }}) und Ist-/Soll-Besteuerung stehen in <code>config.toml</code>.</p>
+      <label class="row" style="gap:10px;cursor:pointer;font-size:13.5px">
+        <input type="checkbox" name="ust_dauerfrist" {{ 'checked' if s.get('ust_dauerfrist') }}>
+        <span>Dauerfristverlängerung beantragt <span class="muted">(einen Monat später abgeben)</span></span>
+      </label>
+      <div class="field"><label>Sondervorauszahlung (€ / Jahr)</label>
+        <input class="input" type="number" min="0" step="0.01" name="ust_sondervorauszahlung" value="{{ s.get('ust_sondervorauszahlung') if s.get('ust_sondervorauszahlung') not in (none, '') else '' }}" placeholder="1/11 der Vorjahres-Zahllast">
+        <p class="muted" style="font-size:12px;margin:7px 0 0">Nur bei <b>monatlicher</b> Abgabe: die Dauerfristverlängerung setzt dort eine Sondervorauszahlung von 1/11 der Vorjahres-Zahllast voraus. Sie wird in der Voranmeldung für <b>Dezember</b> unter <b>Kz 39</b> angerechnet. Quartalszahler bekommen die Fristverlängerung ohne Sondervorauszahlung – das Feld bleibt dann wirkungslos.</p></div>
+
+      <div style="font-size:14px;font-weight:600;margin:12px 0 2px;border-top:1px solid var(--line-3);padding-top:16px">Einkommensteuer-Schätzung</div>
+      <p class="muted" style="font-size:12.5px;margin:0 0 8px">Basis für die Kachel „Für Steuern zurücklegen" auf der Übersicht. Die ESt wird progressiv nach <b>§32a EStG</b> auf deinen EÜR-Gewinn geschätzt (USt-Zahllast kommt exakt aus den Daten).</p>
+
+      <div class="field"><label>Veranlagung</label>
+        <select class="select" name="est_veranlagung">
+          <option value="einzel" {{ 'selected' if s.get('est_veranlagung','einzel')!='zusammen' }}>Einzel – Grundtarif</option>
+          <option value="zusammen" {{ 'selected' if s.get('est_veranlagung')=='zusammen' }}>Zusammen mit Ehepartner – Splittingtarif</option>
+        </select>
+        <p class="muted" style="font-size:12px;margin:7px 0 0">Für die ESt-Veranlagung zählt Grund- vs. Splittingtarif (nicht die Lohnsteuerklasse).</p></div>
+
+      <div class="field" style="border-top:1px solid var(--line-3);padding-top:16px"><label>Krankenversicherung &amp; Pflege (€ / Jahr)</label>
+        <input class="input" type="number" min="0" step="1" name="est_krankenversicherung" value="{{ (s.get('est_krankenversicherung') or 0)|round(0)|int }}">
+        <p class="muted" style="font-size:12px;margin:7px 0 0">Abziehbar als Sonderausgabe (Vorsorgeaufwand), mindert das zu versteuernde Einkommen.</p></div>
+
+      <div class="field"><label>Weitere zu versteuernde Einkünfte (€ / Jahr)</label>
+        <input class="input" type="number" min="0" step="1" name="est_weitere_einkuenfte" value="{{ (s.get('est_weitere_einkuenfte') or 0)|round(0)|int }}">
+        <p class="muted" style="font-size:12px;margin:7px 0 0">z. B. Angestelltengehalt, Vermietung. Leer/0 = nur die Freelance-Einkünfte.</p></div>
+
+      <div class="field" style="border-top:1px solid var(--line-3);padding-top:16px"><label>ESt-Vorauszahlung je Quartal (€)</label>
+        <input class="input" type="number" min="0" step="1" name="est_vorauszahlung" value="{{ (s.get('est_vorauszahlung'))|round(0)|int if s.get('est_vorauszahlung') not in (none, '') else '' }}" placeholder="laut Finanzamt-Bescheid">
+        <p class="muted" style="font-size:12px;margin:7px 0 0">Vom Finanzamt festgesetzt (nicht berechenbar). Wird im Termin „ESt-Vorauszahlung" exakt angezeigt und mit deiner §32a-Schätzung verglichen (Nach-/Erstattung). Leer = geschätzt (Jahres-ESt / 4).</p></div>
+
+      <div class="field" style="border-top:1px solid var(--line-3);padding-top:16px"><label>Kirchensteuer</label>
+        <select class="select" name="est_kirchensteuer">
+          <option value="0" {{ 'selected' if (s.get('est_kirchensteuer') or '0')|string == '0' }}>Keine</option>
+          <option value="8" {{ 'selected' if (s.get('est_kirchensteuer'))|string == '8' }}>8 % (Bayern, Baden-Württemberg)</option>
+          <option value="9" {{ 'selected' if (s.get('est_kirchensteuer'))|string == '9' }}>9 % (übrige Bundesländer)</option>
+        </select></div>
+
+      <label class="row" style="gap:10px;cursor:pointer;font-size:13.5px">
+        <input type="checkbox" name="est_soli" {{ 'checked' if s.get('est_soli') }}>
+        <span>Solidaritätszuschlag berücksichtigen <span class="muted">(für Freiberufler meist 0 – nur über der Freigrenze)</span></span>
+      </label>
+
+      <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit">Speichern</button></div>
+    </form>
+  </div>
+</div>
+
+{# ── LLM ── #}
+<div class="tabpane" data-pane="llm" hidden style="max-width:680px">
+  <div class="card">
+    <form method="post" class="stack">
+      <input type="hidden" name="section" value="llm">
+      <div class="field"><label>Anbieter-Preset</label>
+        <select class="select" onchange="if(this.value)document.getElementById('base_url').value=this.value">
+          <option value="">– wählen –</option>
+          <option value="https://openrouter.ai/api/v1">OpenRouter</option>
+          <option value="https://api.openai.com/v1">OpenAI</option>
+          <option value="https://api.deepseek.com/v1">DeepSeek</option>
+          <option value="https://api.anthropic.com/v1">Anthropic (Claude)</option>
+          <option value="http://localhost:11434/v1">Lokal (Ollama)</option>
+        </select></div>
+      <div class="row" style="gap:12px">
+        <div class="field" style="flex:1"><label>Base-URL</label><input class="input" id="base_url" name="base_url" value="{{ s.get('base_url','') }}" placeholder="https://openrouter.ai/api/v1"></div>
+        <div class="field" style="flex:1"><label>Modell</label><input class="input" name="model" value="{{ s.get('model','') }}" placeholder="anthropic/claude-opus-4.8"></div>
+      </div>
+      <div class="field"><label>API-Key {% if has_key %}<span class="muted">(gespeichert – leer lassen zum Behalten)</span>{% endif %}</label>
+        <input class="input" name="api_key" type="password" placeholder="{{ '········' if has_key else 'sk-…' }}" autocomplete="off"></div>
+      <div class="field"><label>Claude-Code-Modell (Bubble-Widget)</label><input class="input" name="claude_model" value="{{ s.get('claude_model','') }}" placeholder="sonnet"></div>
+      <label class="row" style="gap:9px;cursor:pointer"><input type="checkbox" name="developer_mode" {{ 'checked' if s.get('developer_mode') }} style="width:auto">Entwickler-Modus (Chat darf Shell + Code ändern)</label>
+      <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit">Speichern</button></div>
+      <p class="muted" style="font-size:12px;margin:0">Key nur lokal in <code>data/settings.json</code>.</p>
+    </form>
+  </div>
+</div>
+
+{# ── E-Mail ── #}
+<div class="tabpane" data-pane="email" hidden style="max-width:680px">
+  <div class="card">
+    <form method="post" class="stack">
+      <input type="hidden" name="section" value="email">
+      <div class="row" style="gap:12px">
+        <div class="field" style="flex:1"><label>Anbieter</label>
+          <select class="select" name="email_provider">
+            {% for p in ['SMTP','Gmail','Outlook'] %}<option value="{{ p }}" {{ 'selected' if s.get('email_provider')==p }}>{{ p }}</option>{% endfor %}
+          </select></div>
+        <div class="field" style="flex:1"><label>Absender (From)</label><input class="input" name="email_from" value="{{ s.get('email_from','') }}" placeholder="rechnung@…"></div>
+      </div>
+      <div class="field"><label>Antwort-an (Reply-To)</label><input class="input" name="email_reply_to" value="{{ s.get('email_reply_to','') }}"></div>
+      <div class="row" style="gap:12px">
+        <div class="field" style="flex:2"><label>SMTP-Host</label><input class="input" name="smtp_host" value="{{ s.get('smtp_host','') }}" placeholder="smtp.example.com"></div>
+        <div class="field" style="flex:1"><label>Port</label><input class="input" name="smtp_port" value="{{ s.get('smtp_port','') }}" placeholder="587"></div>
+      </div>
+      <div class="row" style="gap:12px">
+        <div class="field" style="flex:1"><label>SMTP-User</label><input class="input" name="smtp_user" value="{{ s.get('smtp_user','') }}"></div>
+        <div class="field" style="flex:1"><label>SMTP-Passwort {% if has_pw %}<span class="muted">(gespeichert)</span>{% endif %}</label><input class="input" type="password" name="smtp_pass" placeholder="{{ '········' if has_pw else '' }}" autocomplete="off"></div>
+      </div>
+      <div style="border-top:1px solid var(--line-3);margin:4px 0 2px;padding-top:14px;font-size:14px;font-weight:600">Standard-Nachricht</div>
+      <div class="field"><label>Betreff</label><input class="input" name="email_subject_tpl" value="{{ s.get('email_subject_tpl','Rechnung {number}') }}"></div>
+      <div class="field"><label>Text</label><textarea class="input" name="email_body_tpl" rows="5" style="resize:vertical;line-height:1.5">{{ s.get('email_body_tpl','Hallo {customer},\n\nanbei die Rechnung {number} über {amount}, zahlbar bis {due}.\n\nVielen Dank') }}</textarea></div>
+      <div class="field"><label>Signatur</label><textarea class="input" name="email_signature" rows="4" style="resize:vertical;line-height:1.5" placeholder="Freundliche Grüße&#10;{business}">{{ s.get('email_signature','') }}</textarea></div>
+      <p class="muted" style="font-size:12px;margin:0">Platzhalter: <code>{customer}</code> · <code>{number}</code> · <code>{amount}</code> · <code>{due}</code> · <code>{business}</code>. Die Signatur wird an den Text angehängt.</p>
+      <label class="row" style="gap:9px;cursor:pointer"><input type="checkbox" name="auto_send_invoices" {{ 'checked' if s.get('auto_send_invoices') }} style="width:auto">Rechnungen automatisch versenden</label>
+      <label class="row" style="gap:9px;cursor:pointer"><input type="checkbox" name="auto_send_dunning" {{ 'checked' if s.get('auto_send_dunning') }} style="width:auto">Mahnungen automatisch versenden</label>
+      <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit">Speichern</button></div>
+      <p class="muted" style="font-size:12px;margin:0">Versand wird beim Rechnungs-/Mahnungs-Flow genutzt. Zugangsdaten nur lokal.</p>
+    </form>
+  </div>
+</div>
+
+{# ── Profil ── #}
+<div class="tabpane" data-pane="profile" hidden style="max-width:640px">
+  <div class="card stack">
+    <div style="font-size:15px;font-weight:600">Geschäftsdaten</div>
+    <div class="row" style="justify-content:space-between"><span class="muted">Name</span><span style="font-weight:600">{{ biz.get('name','—') }}</span></div>
+    <div class="row" style="justify-content:space-between"><span class="muted">USt-IdNr.</span><span class="num">{{ biz.get('vat_id','—') }}</span></div>
+    <div class="row" style="justify-content:space-between"><span class="muted">Steuernummer</span><span class="num">{{ biz.get('tax_number','—') }}</span></div>
+    <p class="muted" style="font-size:12.5px;margin:0">Erscheinen auf den Rechnungen. USt-IdNr. &amp; Steuernummer <a href="{{ url_for('settings', tab='steuer') }}" style="color:var(--accent-deep);font-weight:600">im Steuer-Tab bearbeiten →</a></p>
+  </div>
+
+  <div class="card" style="margin-top:16px">
+    <form method="post" class="stack">
+      <input type="hidden" name="section" value="bank">
+      <div style="font-size:15px;font-weight:600;margin-bottom:2px">Bankverbindung (Rechnung)</div>
+      <p class="muted" style="font-size:12.5px;margin:0 0 6px">Erscheint als Zahlungsziel auf deinen Ausgangsrechnungen. Überschreibt <code>config.toml</code>.</p>
+      <div class="field"><label>Kontoinhaber</label>
+        <input class="input" name="bank_holder" value="{{ bank.get('holder','') }}" placeholder="Vorname Nachname"></div>
+      <div class="row" style="gap:12px">
+        <div class="field" style="flex:2"><label>IBAN</label>
+          <input class="input num" name="bank_iban" value="{{ bank.get('iban','') }}" placeholder="DE00 0000 0000 0000 0000 00"></div>
+        <div class="field" style="flex:1"><label>BIC</label>
+          <input class="input num" name="bank_bic" value="{{ bank.get('bic','') }}" placeholder="XXXXDEXX"></div>
+      </div>
+      <div class="row" style="justify-content:flex-end"><button class="btn btn--primary" type="submit">Speichern</button></div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+  function setTab(id){
+    document.querySelectorAll('.tabpane').forEach(p=>p.hidden = p.dataset.pane!==id);
+    document.querySelectorAll('.settab').forEach(b=>{ const on=b.dataset.tab===id; b.style.background=on?'':'transparent'; b.style.color=on?'':'var(--ink-2)'; });
+    history.replaceState(null,'','?tab='+id);
+  }
+  setTab('{{ tab }}');
+  document.querySelectorAll('.swatch').forEach(sw=>sw.parentElement.addEventListener('click',()=>{
+    document.querySelectorAll('.swatch').forEach(s=>s.style.boxShadow='0 0 0 3px var(--surface)');
+    const a=sw.dataset.a, hex=getComputedStyle(sw).backgroundColor;
+    sw.style.boxShadow='0 0 0 3px var(--surface),0 0 0 5px '+hex;
+  }));
+</script>
+{% endblock %}

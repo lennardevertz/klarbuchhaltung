@@ -1,0 +1,62 @@
+{% extends "base_klar.html" %}
+{% block title %}Assistant · Klar{% endblock %}
+{% block body %}
+
+<div class="kl-pagehead">
+  <div><h1>Assistant</h1><p class="sub">Fragen stellen &amp; Aufgaben ausführen{% if model %} · {{ model }}{% endif %}</p></div>
+  <button class="btn btn--outline" onclick="cwReset()">Neu</button>
+</div>
+
+{% if not configured %}
+<div class="card card--tint" style="margin-bottom:16px">Kein LLM-Zugang hinterlegt. Bitte unter <a href="{{ url_for('settings', tab='llm') }}">Einstellungen → LLM</a> Base-URL, Modell und API-Key eintragen.</div>
+{% endif %}
+
+<div class="assistant" style="height:calc(100vh - 220px);min-height:420px">
+  <div class="assistant__body" id="cw-log"></div>
+  <div style="border-top:1px solid var(--line-3);padding:14px;background:var(--surface)">
+    <form id="cw-form" class="row" style="gap:10px">
+      <input type="file" id="cw-file" accept="application/pdf,.pdf" hidden>
+      <button type="button" class="btn btn--icon btn--outline" title="Beleg-PDF hochladen" onclick="document.getElementById('cw-file').click()">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4M7 9l5-5 5 5M4 20h16"/></svg></button>
+      <input class="input" id="cw-input" placeholder="Nachricht…" autocomplete="off" style="flex:1">
+      <button class="btn btn--primary" type="submit">Senden</button>
+    </form>
+  </div>
+</div>
+
+{% endblock %}
+{% block scripts %}
+<script>
+  const log=document.getElementById('cw-log'), input=document.getElementById('cw-input'), form=document.getElementById('cw-form');
+  let busy=false;
+  const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  function md(s){ return esc(s).replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>'); }
+  function render(msgs){
+    log.innerHTML = (!msgs||!msgs.length) ? '<div class="muted" style="margin:auto;text-align:center">Noch keine Nachrichten. Stell eine Frage oder lade einen Beleg hoch.</div>' : '';
+    for(const m of (msgs||[])){
+      const d=document.createElement('div');
+      if(m.role==='tool'){ d.className='muted'; d.style.cssText='font-size:12px;align-self:flex-start'; d.textContent='· '+m.text; }
+      else { d.className='msg '+(m.role==='user'?'msg--user':'msg--ai'); d.innerHTML = m.role==='assistant'?md(m.text):esc(m.text); }
+      log.appendChild(d);
+    }
+    log.scrollTop=log.scrollHeight;
+  }
+  function append(role,text){ const e=log.querySelector('.muted'); if(e&&e.parentElement===log&&!e.textContent.startsWith('·'))e.remove();
+    const d=document.createElement('div'); d.className='msg '+(role==='user'?'msg--user':'msg--ai'); d.textContent=text; log.appendChild(d); log.scrollTop=log.scrollHeight; return d; }
+  async function load(){ try{ const d=await (await fetch('{{ url_for("chat_api") }}')).json(); render(d.messages); }catch(e){} }
+  async function cwReset(){ await fetch('{{ url_for("chat_api_reset") }}',{method:'POST'}); render([]); input.focus(); }
+  form.addEventListener('submit', async e=>{
+    e.preventDefault(); const t=input.value.trim(); if(!t||busy)return; busy=true; input.value='';
+    append('user',t); const w=append('ai','…');
+    try{ const d=await (await fetch('{{ url_for("chat_api_send") }}',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({message:t})})).json(); render(d.messages); }
+    catch(err){ w.textContent='Fehler: '+err; } finally{ busy=false; input.focus(); }
+  });
+  document.getElementById('cw-file').addEventListener('change', async function(){
+    const f=this.files&&this.files[0]; if(!f||busy)return; busy=true;
+    append('user','Beleg: '+f.name); const w=append('ai','… analysiere …');
+    try{ const fd=new FormData(); fd.append('file',f); const d=await (await fetch('{{ url_for("chat_api_upload") }}',{method:'POST',body:fd})).json(); render(d.messages); }
+    catch(err){ w.textContent='Fehler: '+err; } finally{ this.value=''; busy=false; }
+  });
+  load();
+</script>
+{% endblock %}

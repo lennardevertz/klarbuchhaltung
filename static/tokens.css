@@ -1,0 +1,129 @@
+/* ============================================================
+   Klar — Design Tokens
+   Nur :root-Custom-Properties. Als ERSTES einbinden,
+   vor components.css. Keine externen Fonts/CDN.
+   ============================================================ */
+
+/* --- Selbst gehostete Fonts (lokal in static/fonts/) --- */
+@font-face{font-family:"Space Grotesk";src:url("fonts/SpaceGrotesk.woff2") format("woff2");font-weight:300 700;font-display:swap}
+@font-face{font-family:"Instrument Sans";src:url("fonts/InstrumentSans.ttf") format("truetype");font-weight:400 700;font-display:swap}
+
+:root{
+  /* ---------- Farben: Neutral / Fläche ---------- */
+  --ink:            #16171D;   /* Primärtext, Primary-Button */
+  --ink-2:          #5C5F6E;   /* Sekundärtext */
+  --ink-3:          #9599A8;   /* Muted / Captions */
+  --ink-4:          #B0B2BE;   /* Placeholder / disabled */
+  --paper:          #FBF9F3;   /* App-Hintergrund */
+  --surface:        #FFFFFF;   /* Karten */
+  --surface-2:      #FCFBF7;   /* Hover / Zebra */
+  --wash:           #F2F0E9;   /* Ghost-Hover, Chips */
+  --line:           #E9E7DF;   /* Divider */
+  --line-2:         #EEEBE2;   /* Kartenrand */
+  --line-3:         #F0EEE6;   /* interne Trennlinie */
+  --field-border:   #E5E3D9;   /* Input-Rand */
+
+  /* ---------- Farben: Semantisch (je Basis + Tint + Deep) ---------- */
+  --green:          #1FA971;   --green-tint:  #E4F6EE;  --green-deep:  #157A52;  /* income / positiv */
+  --coral:          #F5573B;   --coral-tint:  #FEEAE4;  --coral-deep:  #C13A22;  /* expense / error */
+  --amber:          #F0A31A;   --amber-tint:  #FDF0D9;  --amber-deep:  #9A6A0B;  /* fällig / warnung */
+  --azure:          #3B6EF5;   --azure-tint:  #E7EEFF;  --azure-deep:  #274FB8;  /* info / AI / link */
+  --violet:         #9B7BE5;                                                     /* Kategorie */
+
+  /* ---------- Akzent (App-Einstellung, Default green) ----------
+     Nutzer wählt in den Settings; Server/JS schreibt data-accent
+     auf <html> oder <body>. Fallback ohne Attribut = green. */
+  --accent:         var(--green);
+  --accent-tint:    var(--green-tint);
+  --accent-deep:    var(--green-deep);
+
+  /* ---------- Overlays (für Hover/Press ohne Hex im Component-CSS) ---------- */
+  --overlay-ink-06: rgba(22,23,29,.06);
+  --overlay-ink-08: rgba(22,23,29,.08);
+  --shadow-color:   rgba(20,18,10,.16);
+
+  /* ---------- Typografie ---------- */
+  --font-display: "Space Grotesk", ui-sans-serif, system-ui, "Segoe UI", sans-serif;
+  --font-ui:      "Instrument Sans", ui-sans-serif, system-ui, "Segoe UI", Helvetica, Arial, sans-serif;
+
+  --fs-display:  60px;
+  --fs-h1:       38px;
+  --fs-h2:       30px;
+  --fs-title:    20px;
+  --fs-body-lg:  17px;
+  --fs-body:     15px;
+  --fs-sm:       13px;
+  --fs-caption:  12px;
+  --fs-micro:    11px;
+
+  --fw-regular:  400;
+  --fw-medium:   500;
+  --fw-semibold: 600;
+  --fw-bold:     700;
+
+  --lh-tight:    1.05;
+  --lh-snug:     1.2;
+  --lh-normal:   1.5;
+  --lh-relaxed:  1.55;
+
+  --tracking-tight: -0.02em;
+  --tracking-caps:   0.14em;
+
+  /* ---------- Spacing (4px-Basis) ---------- */
+  --s-1:  4px;
+  --s-2:  8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 20px;
+  --s-6: 24px;
+  --s-7: 28px;
+  --s-8: 32px;
+  --s-10:40px;
+  --s-16:64px;
+
+  /* ---------- Radius ---------- */
+  --r-xs:   6px;
+  --r-sm:   8px;
+  --r-md:  11px;
+  --r-lg:  14px;
+  --r-xl:  18px;
+  --r-2xl: 22px;
+  --r-pill:999px;
+
+  /* ---------- Elevation ---------- */
+  --shadow-sm: 0 1px 2px rgba(20,18,10,.04);
+  --shadow-md: 0 1px 2px rgba(20,18,10,.04), 0 8px 26px -18px var(--shadow-color);
+  --shadow-lg: 0 1px 2px rgba(20,18,10,.04), 0 18px 44px -22px rgba(20,18,10,.28);
+
+  /* ---------- Motion ---------- */
+  --dur-fast: 120ms;
+  --dur-base: 180ms;
+  --ease:     cubic-bezier(.22,1,.36,1);
+
+  /* ---------- Density (App-Einstellung, Default airy) ----------
+     Vertikaler Rhythmus für Listen-/Tabellenzeilen & Feldhöhen.
+     Nutzer wählt in den Settings; data-density unten schaltet um. */
+  --row-pad-y:   18px;   /* Zeilen-Innenabstand oben/unten */
+  --row-gap:     14px;   /* Abstand zwischen gestapelten Zeilen */
+  --control-pad-y: 11px; /* Höhe von Inputs/Buttons */
+}
+
+/* ============================================================
+   Accent-Einstellung
+   Serverseitig gerendert:  <html data-accent="{{ user.accent }}">
+   oder clientseitig:       document.documentElement.dataset.accent = 'azure'
+   Gültige Werte: green (Default) · azure · amber · coral
+   ============================================================ */
+[data-accent="green"]{ --accent:var(--green); --accent-tint:var(--green-tint); --accent-deep:var(--green-deep); }
+[data-accent="azure"]{ --accent:var(--azure); --accent-tint:var(--azure-tint); --accent-deep:var(--azure-deep); }
+[data-accent="amber"]{ --accent:var(--amber); --accent-tint:var(--amber-tint); --accent-deep:var(--amber-deep); }
+[data-accent="coral"]{ --accent:var(--coral); --accent-tint:var(--coral-tint); --accent-deep:var(--coral-deep); }
+
+/* ============================================================
+   Density-Einstellung
+   Serverseitig gerendert:  <html data-density="{{ user.density }}">
+   Gültige Werte: airy (Default) · compact
+   Komponenten nutzen var(--row-pad-y) / --row-gap / --control-pad-y.
+   ============================================================ */
+[data-density="airy"]   { --row-pad-y:18px; --row-gap:14px; --control-pad-y:11px; }
+[data-density="compact"]{ --row-pad-y:11px; --row-gap:8px;  --control-pad-y:8px;  }

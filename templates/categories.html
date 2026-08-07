@@ -1,0 +1,39 @@
+{% extends "base_klar.html" %}
+{% block title %}Kategorien · Klar{% endblock %}
+{% block body %}
+
+<div class="kl-pagehead"><div><h1>Kategorien</h1><p class="sub">SKR03-Aufwandskonten für Betriebsausgaben</p></div></div>
+
+<div class="grid-2" style="align-items:start">
+  <div class="card" style="padding:0;overflow:hidden">
+    <div class="list-head"><span style="font-size:15px;font-weight:600">Standard-Konten (SKR03)</span><span class="muted" style="font-size:13px">{{ accounts|length }}</span></div>
+    {% for a in accounts %}
+    {% set no = a.split(' - ')[0] %}{% set nm = a.split(' - ')[1] if ' - ' in a else '' %}
+    <div class="txn" style="padding:12px 20px">
+      <span class="num" style="font-weight:700;background:var(--wash);border-radius:6px;padding:3px 9px;font-size:12.5px">{{ no }}</span>
+      <div class="txn__body"><div class="txn__title" style="font-size:14px">{{ nm }}</div></div>
+      <span class="tag" style="font-size:11.5px"><span class="tag__dot" style="background:var(--coral)"></span>Aufwand</span>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="stack" style="gap:20px">
+    <div class="card">
+      <div style="font-size:15px;font-weight:600;margin-bottom:14px">Eigenes Konto</div>
+      <form method="post" class="row" style="gap:10px;align-items:flex-end">
+        <div class="field" style="flex:1"><label>Konto (Format: „4980 - Sonstiges")</label><input class="input" name="account" placeholder="4980 - Sonstiges" required></div>
+        <button class="btn btn--primary" type="submit">Hinzufügen</button>
+      </form>
+    </div>
+    {% if custom %}
+    <div class="card" style="padding:0;overflow:hidden">
+      <div class="list-head"><span style="font-size:15px;font-weight:600">Eigene Konten</span><span class="muted" style="font-size:13px">{{ custom|length }}</span></div>
+      {% for a in custom %}
+      <div class="txn" style="padding:12px 20px"><span class="num" style="font-weight:700;background:var(--accent-tint);color:var(--accent-deep);border-radius:6px;padding:3px 9px;font-size:12.5px">{{ a.split(' - ')[0] }}</span>
+        <div class="txn__body"><div class="txn__title" style="font-size:14px">{{ a.split(' - ')[1] if ' - ' in a else a }}</div></div></div>
+      {% endfor %}
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,145 @@
+{# Startbildschirm: Profil wählen. Eigenständige Seite ohne Navigation –
+   an dieser Stelle ist noch keine Buchhaltung geladen. #}
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Profil wählen · Buchhaltung</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='tokens.css') }}">
+<style>
+  body{ margin:0; min-height:100vh; background:var(--paper); color:var(--ink);
+    font-family:"Instrument Sans",-apple-system,BlinkMacSystemFont,sans-serif;
+    display:flex; align-items:center; justify-content:center; padding:40px 24px; }
+  .mitte{ width:100%; max-width:760px; text-align:center; }
+  .logo{ display:flex; align-items:flex-end; justify-content:center; gap:5px; height:30px; margin-bottom:26px; }
+  .logo i{ display:block; width:10px; border-radius:3px; background:var(--ink); }
+  .logo i:nth-child(1){ height:12px } .logo i:nth-child(2){ height:20px }
+  .logo i:nth-child(3){ height:30px; background:var(--green) }
+  h1{ font-family:var(--font-display,inherit); font-size:29px; font-weight:700;
+    letter-spacing:var(--tracking-tight); margin:0 0 6px; }
+  .lead{ color:var(--ink-2); font-size:14.5px; margin:0 0 38px; }
+
+  .kacheln{ display:flex; flex-wrap:wrap; gap:26px; justify-content:center; align-items:flex-start; }
+  .kachel{ width:132px; border:none; background:none; padding:0; font:inherit; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:11px; }
+  .avatar{ width:104px; height:104px; border-radius:22px; display:flex; align-items:center;
+    justify-content:center; font-family:var(--font-display,inherit); font-size:33px; font-weight:600;
+    color:#fff; letter-spacing:.5px; transition:transform .14s ease, box-shadow .14s ease;
+    box-shadow:0 1px 2px rgba(22,23,29,.10); }
+  .kachel:hover .avatar, .kachel:focus-visible .avatar{ transform:translateY(-3px);
+    box-shadow:0 10px 24px rgba(22,23,29,.18); }
+  .kachel:focus-visible{ outline:none }
+  .kachel:focus-visible .avatar{ outline:2px solid var(--ink); outline-offset:3px }
+  .name{ font-size:14px; font-weight:600; line-height:1.35; word-break:break-word; }
+  .status{ font-size:12px; color:var(--amber-deep); }
+
+  .neu .avatar{ background:var(--surface); border:1.5px dashed var(--line); color:var(--ink-3);
+    font-size:34px; font-weight:300; box-shadow:none; }
+  .neu:hover .avatar{ border-color:var(--ink-3); color:var(--ink-2); }
+
+  .werkzeuge{ margin-top:40px; }
+  .link{ border:none; background:none; font:inherit; font-size:13.5px; color:var(--ink-3);
+    cursor:pointer; text-decoration:underline; text-underline-offset:3px; }
+  .link:hover{ color:var(--ink) }
+
+  dialog{ border:none; border-radius:16px; padding:0; background:var(--surface);
+    box-shadow:0 24px 60px rgba(22,23,29,.28); width:min(400px,92vw); color:var(--ink); }
+  dialog::backdrop{ background:rgba(22,23,29,.45) }
+  .dlg{ padding:22px; text-align:left; }
+  .dlg h2{ font-family:var(--font-display,inherit); font-size:17px; font-weight:600; margin:0 0 14px; }
+  .dlg label{ display:block; font-size:12.5px; font-weight:600; color:var(--ink-2); margin-bottom:6px; }
+  .dlg input{ width:100%; box-sizing:border-box; height:40px; padding:0 12px; font:inherit; font-size:14px;
+    border:1px solid var(--field-border); border-radius:10px; background:var(--surface); color:var(--ink); }
+  .dlg input:focus{ outline:2px solid var(--accent); outline-offset:-1px; border-color:transparent }
+  .dlg .reihe{ display:flex; justify-content:flex-end; gap:10px; margin-top:18px; }
+  .btn{ height:38px; padding:0 16px; border-radius:10px; font:inherit; font-size:14px;
+    font-weight:600; cursor:pointer; border:1px solid var(--field-border); background:var(--surface);
+    color:var(--ink-2); }
+  .btn:hover{ background:var(--wash) }
+  .btn--primary{ background:var(--ink); border-color:var(--ink); color:#fff }
+  .btn--primary:hover{ background:#000 }
+  .btn--gefahr{ border-color:var(--coral); color:var(--coral-deep) }
+  .btn--gefahr:hover{ background:var(--coral-tint) }
+  .hinweis{ font-size:12.5px; color:var(--ink-3); margin:12px 0 0; line-height:1.5 }
+  .flash{ border-radius:10px; padding:10px 14px; font-size:13.5px; margin-bottom:18px;
+    background:var(--coral-tint); color:var(--coral-deep); }
+</style>
+
+<div class="mitte">
+  <div class="logo"><i></i><i></i><i></i></div>
+  <h1>Wer bucht?</h1>
+  <p class="lead">Jedes Profil ist eine eigene Buchhaltung – eigene Rechnungen, Belege und Auswertungen.</p>
+
+  {% with msgs = get_flashed_messages() %}
+    {% for m in msgs %}<div class="flash">{{ m }}</div>{% endfor %}
+  {% endwith %}
+
+  <div class="kacheln">
+    {% for p in profile %}
+    <form method="post" action="{{ url_for('profile_oeffnen', slug=p.slug) }}">
+      <button class="kachel" type="submit">
+        <span class="avatar" style="background:{{ ['#1FA971','#3B6EF5','#9B7BE5','#F0A31A','#F5573B'][loop.index0 % 5] }}">{{ p.initialen }}</span>
+        <span class="name">{{ p.name }}</span>
+        {% if not p.eingerichtet %}<span class="status">Einrichtung offen</span>{% endif %}
+      </button>
+    </form>
+    {% endfor %}
+
+    <button class="kachel neu" type="button" onclick="document.getElementById('dlg-neu').showModal()">
+      <span class="avatar">+</span>
+      <span class="name">Neues Profil</span>
+    </button>
+  </div>
+
+  {% if profile %}
+  <div class="werkzeuge">
+    <button class="link" type="button" onclick="document.getElementById('dlg-verwalten').showModal()">
+      Profile verwalten
+    </button>
+  </div>
+  {% endif %}
+</div>
+
+{# ── Neues Profil ── #}
+<dialog id="dlg-neu">
+  <form method="post" action="{{ url_for('profile_neu') }}" class="dlg">
+    <h2>Neues Profil</h2>
+    <label for="neu-name">Name der Buchhaltung</label>
+    <input id="neu-name" name="name" required autofocus placeholder="z. B. Meine Firma GmbH">
+    <p class="hinweis">Im nächsten Schritt kommen die Stammdaten. Daten, Belege und
+      Auswertungen bleiben strikt getrennt von den anderen Profilen.</p>
+    <div class="reihe">
+      <button class="btn" type="button" onclick="this.closest('dialog').close()">Abbrechen</button>
+      <button class="btn btn--primary" type="submit">Anlegen</button>
+    </div>
+  </form>
+</dialog>
+
+{# ── Verwalten ── #}
+<dialog id="dlg-verwalten">
+  <div class="dlg">
+    <h2>Profile verwalten</h2>
+    {% for p in profile %}
+    <div style="border-top:1px solid var(--line-3);padding:14px 0">
+      <form method="post" action="{{ url_for('profile_umbenennen', slug=p.slug) }}"
+            style="display:flex;gap:8px;align-items:flex-end">
+        <div style="flex:1">
+          <label for="n-{{ p.slug }}">Name</label>
+          <input id="n-{{ p.slug }}" name="name" value="{{ p.name }}" required>
+        </div>
+        <button class="btn" type="submit">Sichern</button>
+      </form>
+      <form method="post" action="{{ url_for('profile_entfernen', slug=p.slug) }}"
+            style="margin-top:8px"
+            onsubmit="return klarConfirmSubmit(this, 'Profil „{{ p.name }}“ aus der Liste nehmen? Die Daten bleiben im Ordner profiles/{{ p.slug }} liegen.', {titel:'Profil entfernen', ja:'Entfernen', gefahr:true})">
+        <button class="btn btn--gefahr" type="submit">Aus der Liste nehmen</button>
+      </form>
+    </div>
+    {% endfor %}
+    <p class="hinweis">Entfernen löscht nichts – Datenbank und Belege bleiben unter
+      <code>profiles/&lt;name&gt;/</code> liegen.</p>
+    <div class="reihe">
+      <button class="btn" type="button" onclick="this.closest('dialog').close()">Schließen</button>
+    </div>
+  </div>
+</dialog>
+
+{% include "_dialog.html" %}

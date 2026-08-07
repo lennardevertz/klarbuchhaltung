@@ -1,0 +1,13 @@
+# Laufzeit-Abhängigkeiten. Installieren:  pip install -r requirements.txt
+Flask>=3.1
+flask-sock>=0.7          # WebSocket für das eingebaute Terminal
+fpdf2>=2.8               # Rechnungs-PDFs (lazy importiert in core.render_invoice_pdf)
+pypdf>=6.0               # Text aus hochgeladenen Belegen ziehen
+pywebview>=6.2           # natives Fenster statt Browser
+# In mcp 2.0 ist mcp.server.fastmcp verschwunden – bis mcp_server.py darauf
+# umgestellt ist, bleibt es bei der 1.x-Reihe.
+mcp>=1.28,<2             # MCP-Server für Claude Code / Codex / Cursor
+
+# Nur zum Bauen der Pakete nötig – siehe packaging/build.sh
+# pyinstaller>=6.0
+# pillow>=11.0            # erzeugt die App-Icons

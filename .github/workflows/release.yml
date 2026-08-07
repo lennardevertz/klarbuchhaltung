@@ -1,0 +1,103 @@
+name: Release
+
+# Auf einen Tag wie v1.0.0 hin bauen. Cross-Compiling gibt es nicht –
+# jede Plattform braucht ihren eigenen Runner.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:          # zum Ausprobieren ohne Tag
+
+permissions:
+  contents: write             # nötig, um das Release anzulegen
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            artefakt: "*.dmg"
+          - os: windows-latest
+            artefakt: "*.zip"
+          - os: ubuntu-latest
+            artefakt: "*.tar.gz"
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Systempakete für pywebview (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgirepository1.0-dev libcairo2-dev \
+                                  gir1.2-webkit2-4.1 python3-gi
+
+      - name: Abhängigkeiten
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller pillow pytest
+
+      - name: Tests vor dem Bauen
+        run: python -m pytest -q
+
+      - name: Version aus dem Tag
+        shell: bash
+        run: echo "VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Icons erzeugen
+        run: python packaging/make_icon.py
+
+      - name: Paket bauen
+        shell: bash
+        env:
+          PYTHON: python
+          VERSION: ${{ env.VERSION || '0.0.0-dev' }}
+        run: ./packaging/build.sh
+
+      # Signierung kommt hier hin, sobald Zertifikate hinterlegt sind:
+      #   macOS   – codesign --deep --sign "$APPLE_ID" + notarytool submit
+      #   Windows – signtool sign /fd sha256 …
+      # Bis dahin sind die Pakete unsigniert; das README erklärt die Warnung.
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: buchhaltung-${{ runner.os }}
+          path: dist/release/${{ matrix.artefakt }}
+          if-no-files-found: error
+
+  release:
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: pakete
+          merge-multiple: true
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: pakete/*
+          generate_release_notes: true
+          body: |
+            ## Installation
+
+            **macOS** – `.dmg` öffnen, App nach „Programme" ziehen. Beim ersten
+            Start: Rechtsklick auf die App → **Öffnen** → **Öffnen**. Die
+            Warnung erscheint, weil das Paket nicht signiert ist.
+
+            **Windows** – `.zip` entpacken, `Buchhaltung.exe` starten. SmartScreen
+            meldet einen unbekannten Herausgeber: **Weitere Informationen** →
+            **Trotzdem ausführen**.
+
+            **Linux** – `.tar.gz` entpacken und `Buchhaltung` starten. Benötigt
+            WebKitGTK (`gir1.2-webkit2-4.1`). Alternativ aus dem Quellcode
+            betreiben, siehe README.
+
+            Alle Daten bleiben lokal auf dem Rechner.
