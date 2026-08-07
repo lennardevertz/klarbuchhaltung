@@ -1059,6 +1059,16 @@ def analyze_pdf(data: bytes, filename: str) -> dict:
     return {"empty": False, "content": content, "display": f"📎 {filename} hochgeladen"}
 
 
+def _mit_fehler(history: list, text: str, log: list) -> dict:
+    """Fehler als Assistenten-Nachricht in den Verlauf legen.
+
+    Die Oberflaeche zeigt nur den Verlauf, nicht 'reply' – ohne das bliebe der
+    Chat bei einem API-Fehler einfach stumm, und niemand weiss, warum.
+    """
+    return {"reply": text, "messages": list(history) + [{"role": "assistant", "content": text}],
+            "log": log}
+
+
 def run(history: list) -> dict:
     """history: OpenAI-Nachrichten (ohne System). Gibt reply, neue history, tool-log zurück."""
     s = settings()
@@ -1077,7 +1087,11 @@ def run(history: list) -> dict:
         for _ in range(10):
             data = _post(s["base_url"], s["api_key"], {
                 "model": s["model"], "messages": [_clean_msg(m) for m in msgs],
-                "tools": tools_for(), "tool_choice": "auto"})
+                "tools": tools_for(), "tool_choice": "auto",
+                # Ohne Angabe reservieren manche Anbieter das Modellmaximum und
+                # lehnen die Anfrage bei knappem Guthaben ab. Antworten hier sind
+                # kurz; 4096 reicht auch fuer lange Tool-Ketten.
+                "max_tokens": int(s.get("max_tokens") or 4096)})
             if "choices" not in data:
                 return {"reply": f"Antwort ohne Ergebnis: {json.dumps(data)[:500]}",
                         "messages": msgs[1:], "log": log}
@@ -1191,9 +1205,9 @@ def run(history: list) -> dict:
         return {"reply": "(Abbruch: zu viele Tool-Schritte)", "messages": msgs[1:], "log": log}
     except urllib.error.HTTPError as e:
         detail = e.read().decode("utf-8", "replace")[:600]
-        return {"reply": f"API-Fehler {e.code}: {detail}", "messages": history, "log": log}
+        return _mit_fehler(history, f"API-Fehler {e.code}: {detail}", log)
     except Exception as e:  # noqa
-        return {"reply": f"Fehler: {e}", "messages": history, "log": log}
+        return _mit_fehler(history, f"Fehler: {e}", log)
 
 
 # ── Claude Code als Agent-Backend (für das Chat-Bubble-Widget) ───────────

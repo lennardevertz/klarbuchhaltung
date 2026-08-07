@@ -1,4 +1,5 @@
 """Tool-Schicht (assistant.dispatch): dieselbe Schnittstelle wie Chat, CLI-call und MCP."""
+import io
 import json
 
 import pytest
@@ -402,3 +403,53 @@ def test_jedes_tool_ist_dispatchbar(sandbox):
             continue
         out = assistant.dispatch(name, {})
         assert "Unbekanntes Tool" not in out, f"{name} hat keinen dispatch-Zweig"
+
+
+# ── Fehler dürfen nicht stumm verschwinden ───────────────────────────────
+def test_api_fehler_landet_im_verlauf(sandbox, monkeypatch):
+    """Die Oberfläche zeigt nur den Verlauf – ohne das bliebe der Chat stumm."""
+    import urllib.error
+    import assistant
+
+    core.save_settings({"base_url": "https://x/v1", "api_key": "k", "model": "m"})
+
+    def kaputt(*a, **kw):
+        raise urllib.error.HTTPError("https://x/v1", 402, "Payment Required", {},
+                                     io.BytesIO(b'{"error":"kein Guthaben"}'))
+
+    monkeypatch.setattr(assistant, "_post", kaputt)
+    r = assistant.run([{"role": "user", "content": "hallo"}])
+    assert "402" in r["reply"]
+    assert r["messages"][-1]["role"] == "assistant"
+    assert "402" in r["messages"][-1]["content"], "Fehler steht im Verlauf"
+
+
+def test_max_tokens_wird_gesetzt(sandbox, monkeypatch):
+    """Ohne Angabe reservieren Anbieter das Modellmaximum und lehnen bei
+    knappem Guthaben ab – genau das ist in der Praxis passiert."""
+    import assistant
+
+    core.save_settings({"base_url": "https://x/v1", "api_key": "k", "model": "m"})
+    gesehen = {}
+
+    def merke(base, key, payload):
+        gesehen.update(payload)
+        return {"choices": [{"message": {"role": "assistant", "content": "ok"}}]}
+
+    monkeypatch.setattr(assistant, "_post", merke)
+    assistant.run([{"role": "user", "content": "hallo"}])
+    assert gesehen.get("max_tokens") == 4096
+
+
+def test_max_tokens_ist_einstellbar(sandbox, monkeypatch):
+    import assistant
+
+    core.save_settings({"base_url": "https://x/v1", "api_key": "k", "model": "m",
+                        "max_tokens": 512})
+    gesehen = {}
+    monkeypatch.setattr(assistant, "_post",
+                        lambda b, k, p: (gesehen.update(p),
+                                         {"choices": [{"message": {"role": "assistant",
+                                                                   "content": "ok"}}]})[1])
+    assistant.run([{"role": "user", "content": "hallo"}])
+    assert gesehen.get("max_tokens") == 512

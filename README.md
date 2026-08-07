@@ -142,6 +142,8 @@ Darunter liegt je Profil `profiles/<name>/` mit `config.toml` und `data/`.
 - **Regeln, die sich selbst lernen**: Sobald du eine Buchung zuordnest, merkt
   sich die App die Zuordnung je Beschreibung und schlägt sie beim nächsten Mal
   vor — bestätigen musst du weiterhin selbst.
+![Banking](docs/screenshots/banking.jpg)
+
 - **Nuri-/Wirex-Konto direkt angebunden** (optional): Karten- und
   Kontoumsätze, IBAN und SEPA laufen über den MCP-Server von Wirex. Die
   Anmeldung erfolgt per **Passkey**; das Sitzungs-Token gilt rund eine Stunde
@@ -165,6 +167,12 @@ bleibt lokal in deiner Profilablage.
 Mit Ollama oder LM Studio verlässt **kein Byte den Rechner** — dieselbe Zusage
 wie beim Rest der App. Ohne eingetragenen Zugang bleibt der Chat einfach aus,
 alles andere funktioniert unverändert.
+
+![Chat](docs/screenshots/chat.jpg)
+
+Antworten kommen nicht nur als Text: Zu Auswertungen zeichnet der Assistent
+Karten — Ringdiagramm für Kategorien, Balken für Verläufe, Kennzahl mit
+Trendlinie, oder gleich ein ausfüllbares Rechnungsformular.
 
 Was der Chat kann: Rechnungen und Ausgaben anlegen, Zahlungen zuordnen,
 Auswertungen abfragen — und **hochgeladene PDF-Belege auslesen**: Anbieter,
