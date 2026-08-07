@@ -11,6 +11,24 @@ laufenden Kosten — eine SQLite-Datei und deine Belege als PDF.
   <img src="packaging/Buchhaltung.png" width="96" alt="">
 </p>
 
+![Übersicht](docs/screenshots/uebersicht.jpg)
+
+<table>
+<tr>
+<td width="50%"><img src="docs/screenshots/zahlungen.jpg" alt="Zahlungen"></td>
+<td width="50%"><img src="docs/screenshots/rechnungen.jpg" alt="Rechnungen"></td>
+</tr>
+<tr>
+<td>Jede Buchung mit Konto und Steuerbehandlung — 19 % USt, steuerfrei, § 13b</td>
+<td>Rechnungen nach Jahr und Richtung, PDF direkt daneben</td>
+</tr>
+</table>
+
+<p align="center">
+  <img src="docs/screenshots/berichte.jpg" width="85%" alt="Berichte">
+</p>
+<p align="center"><sub>EÜR, USt-Voranmeldung, Zusammenfassende Meldung, DATEV-Export</sub></p>
+
 ---
 
 ## Installieren
@@ -102,17 +120,68 @@ Darunter liegt je Profil `profiles/<name>/` mit `config.toml` und `data/`.
 
 ## Was die App kann
 
-- **Rechnungen** schreiben (PDF, zweisprachig DE/EN), Zahlungen erfassen,
-  Mahnwesen, wiederkehrende Rechnungen
-- **Ausgaben** mit Belegablage und Privatanteil (z. B. Telefon 80 % privat)
-- **Bankabgleich** per CSV-Import; Eingänge werden offenen Rechnungen
-  automatisch zugeordnet, wiederkehrende Buchungen schlägt die App vor
-- **Berichte**: EÜR, USt-Voranmeldung mit ELSTER-Kennziffern, Zusammenfassende
-  Meldung, USt-Jahresabschluss
-- **Chat** mit einem LLM deiner Wahl (OpenRouter, OpenAI, DeepSeek, Anthropic,
-  Ollama lokal) — der Schlüssel bleibt lokal in den Einstellungen
-- **MCP-Server** für Claude Code, Codex oder Cursor: `./bb-mcp`
+### Buchhaltung
+
+- **Rechnungen** schreiben als PDF, zweisprachig DE/EN, mit fortlaufender
+  Nummer je Monat. Inland mit USt, EU-Geschäftskunden mit Reverse Charge,
+  Drittland nicht steuerbar — der Rechnungstyp folgt zwingend dem Kunden,
+  nicht der Auswahl im Formular.
+- **Zahlungen** erfassen, **Mahnwesen**, **wiederkehrende Rechnungen**
+- **Ausgaben** mit Belegablage nach Jahr und Quartal, SKR03-Konten und
+  **Privatanteil** (Telefon zu 80 % privat: nur 20 % zählen als Betriebsausgabe)
+- **Berichte**: EÜR nach Zufluss-/Abflussprinzip, USt-Voranmeldung mit den
+  ELSTER-Kennziffern 81/86/66/83/21/45, Zusammenfassende Meldung,
+  USt-Jahresabschluss, SuSa-Liste, DATEV-/CSV-Export für den Steuerberater
+
+### Banking
+
+- **CSV-Import** des Bankexports. Die komplette Historie darf jedes Mal rein —
+  Duplikate erkennt die App per Prüfsumme.
+- **Automatischer Abgleich**: Eingänge werden offenen Rechnungen mit gleichem
+  Betrag zugeordnet, die Rechnung gilt damit als bezahlt.
+- **Regeln, die sich selbst lernen**: Sobald du eine Buchung zuordnest, merkt
+  sich die App die Zuordnung je Beschreibung und schlägt sie beim nächsten Mal
+  vor — bestätigen musst du weiterhin selbst.
+- **Nuri-/Wirex-Konto direkt angebunden** (optional): Karten- und
+  Kontoumsätze, IBAN und SEPA laufen über den MCP-Server von Wirex. Die
+  Anmeldung erfolgt per **Passkey**; das Sitzungs-Token gilt rund eine Stunde
+  und wird nur im Arbeitsspeicher gehalten, nie auf die Platte geschrieben.
+
+### Chat und KI — mit dem Anbieter deiner Wahl
+
+Der eingebaute Chat spricht **jede OpenAI-kompatible Schnittstelle**. Du
+trägst in den Einstellungen Base-URL, Modell und Schlüssel ein; der Schlüssel
+bleibt lokal in deiner Profilablage.
+
+| Anbieter | Base-URL |
+|---|---|
+| **Lokal (Ollama)** | `http://localhost:11434/v1` |
+| **Lokal (LM Studio)** | `http://localhost:1234/v1` |
+| OpenRouter | `https://openrouter.ai/api/v1` |
+| OpenAI | `https://api.openai.com/v1` |
+| DeepSeek | `https://api.deepseek.com/v1` |
+| Anthropic (Claude) | `https://api.anthropic.com/v1` |
+
+Mit Ollama oder LM Studio verlässt **kein Byte den Rechner** — dieselbe Zusage
+wie beim Rest der App. Ohne eingetragenen Zugang bleibt der Chat einfach aus,
+alles andere funktioniert unverändert.
+
+Was der Chat kann: Rechnungen und Ausgaben anlegen, Zahlungen zuordnen,
+Auswertungen abfragen — und **hochgeladene PDF-Belege auslesen**: Anbieter,
+Betrag, Datum und ein passendes SKR03-Konto werden vorgeschlagen, gebucht wird
+erst nach deiner Bestätigung.
+
+> Der **Entwickler-Modus** (standardmäßig aus) gibt dem Modell zusätzlich
+> Shell- und Dateizugriff. Praktisch zum Entwickeln — aber ein präpariertes
+> PDF könnte darüber Anweisungen einschleusen. Lass ihn aus, wenn du Belege
+> von Dritten verarbeitest.
+
+### Weitere Zugänge
+
+- **MCP-Server** für Claude Code, Codex oder Cursor: `./bb-mcp` — dieselben
+  Werkzeuge wie im Chat, erzeugt aus derselben Quelle, also nie veraltet
 - **CLI** für alles ohne Oberfläche: `./bb <befehl>`
+- **Terminal** im Browser: eine echte Shell im Projektordner
 
 Bei mehreren Profilen brauchen CLI und MCP die Angabe, welches gemeint ist:
 
@@ -125,19 +194,15 @@ BB_PROFILE=meine-firma ./bb-mcp
 
 ## Bedienung
 
-### Bankabgleich (der Kern-Arbeitsablauf)
+### Buchung festsetzen
 
-Reiter **Banking** → CSV-Export der Bank hochladen. Die komplette Historie darf
-jedes Mal hochgeladen werden — Duplikate erkennt die App per Prüfsumme.
-Eingänge werden offenen Rechnungen mit gleichem Betrag zugeordnet. Jede offene
-Buchung lässt sich festsetzen als Rechnungszahlung, Betriebsausgabe (mit Konto,
-USt-Satz und optionalem Privatanteil), Privatentnahme, Bankgebühr oder
-„ignorieren". An jede festgesetzte Buchung kann ein Beleg.
+Jede offene Buchung im Reiter **Zahlungen** lässt sich festsetzen als
+Rechnungszahlung, Betriebsausgabe (mit Konto, USt-Satz und optionalem
+Privatanteil), Privatentnahme, Bankgebühr oder „ignorieren". An jede
+festgesetzte Buchung kann ein Beleg.
 
-Über das Suchfeld filtern (z. B. „Vodafone"), dann „alle auswählen" und in einem
-Rutsch festsetzen. Sobald eine Buchung zugeordnet ist, merkt sich die App die
-Zuordnung je Beschreibung und schlägt sie beim nächsten Mal vor — bestätigen
-musst du weiterhin selbst.
+Über das Suchfeld filtern (z. B. „Vodafone"), dann „alle auswählen" und in
+einem Rutsch festsetzen.
 
 ### Kontenrahmen
 
