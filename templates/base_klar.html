@@ -324,18 +324,18 @@
         } else if(b.type==='chart_bar'){
           const bars=b.bars||[]; const mx=Math.max(1,...bars.map(x=>+x.value||0));
           let inner=(b.subtitle?'<p style="font-size:13.5px;margin:0 0 10px">'+esc(b.subtitle)+'</p>':'')+'<div style="display:flex;align-items:flex-end;gap:8px;height:120px;padding-top:6px">';
-          for(const x of bars){ inner+='<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">'
+          for(const x of bars){ inner+='<div style="flex:1;min-width:0;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end">'
             +'<span class="num" style="font-size:10.5px;color:var(--ink-3)">'+esc(x.amount||'')+'</span>'
             +'<div style="width:100%;background:var(--accent);border-radius:5px 5px 0 0;height:'+Math.round((+x.value||0)/mx*100)+'%;min-height:2px"></div>'
-            +'<span style="font-size:11px;color:var(--ink-3);font-weight:500">'+esc(x.label||'')+'</span></div>'; }
+            +'<span style="font-size:11px;color:var(--ink-3);font-weight:500;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(x.label||'')+'</span></div>'; }
           inner+='</div>'; card.innerHTML=inner;
         } else if(b.type==='chart_donut'){
           const segs=b.segments||[]; const tot=segs.reduce((a,s)=>a+(+s.value||0),0)||1; let acc=0, stops=[];
           segs.forEach((s,i)=>{ const c=PALETTE[i%PALETTE.length]; const f=(+s.value||0)/tot; stops.push(c+' '+(acc*100).toFixed(2)+'% '+((acc+f)*100).toFixed(2)+'%'); acc+=f; });
-          let leg=''; segs.forEach((s,i)=>{ leg+='<div style="display:flex;align-items:center;gap:8px"><span style="width:9px;height:9px;border-radius:3px;background:'+PALETTE[i%PALETTE.length]+';flex-shrink:0"></span><span style="flex:1;font-size:12.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s.name||'')+'</span><span class="num" style="font-size:12px;color:var(--ink-2)">'+esc(s.amount||'')+'</span></div>'; });
+          let leg=''; segs.forEach((s,i)=>{ leg+='<div style="display:flex;align-items:center;gap:8px;min-width:0"><span style="width:9px;height:9px;border-radius:3px;background:'+PALETTE[i%PALETTE.length]+';flex-shrink:0"></span><span style="flex:1;font-size:12.5px;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+esc(s.name||'')+'</span><span class="num" style="font-size:12px;color:var(--ink-2);flex-shrink:0">'+esc(s.amount||'')+'</span></div>'; });
           card.innerHTML=(b.subtitle?'<p style="font-size:13.5px;margin:0 0 12px">'+esc(b.subtitle)+'</p>':'')
             +'<div style="display:flex;align-items:center;gap:16px"><div style="width:96px;height:96px;border-radius:50%;flex-shrink:0;background:conic-gradient('+stops.join(',')+');position:relative"><div style="position:absolute;inset:16px;background:var(--surface);border-radius:50%;display:flex;align-items:center;justify-content:center"><span class="num" style="font-size:12.5px;font-weight:700">'+money(b.total)+'</span></div></div>'
-            +'<div style="flex:1;display:flex;flex-direction:column;gap:7px">'+leg+'</div></div>';
+            +'<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px">'+leg+'</div></div>';
         } else if(b.type==='list'){
           let inner=(b.subtitle?'<p style="font-size:13.5px;margin:0 0 10px">'+esc(b.subtitle)+'</p>':(b.title?'<p style="font-size:13.5px;font-weight:600;margin:0 0 8px">'+esc(b.title)+'</p>':''));
           for(const it of (b.items||[])){ inner+='<div style="display:flex;align-items:center;gap:11px;padding:9px 0;border-top:1px solid var(--line-3)">'
@@ -502,7 +502,7 @@
           let fields=''; for(const f of (b.fields||[])){ fields+='<div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink-3)">'+esc(f.label||'')+'</span><span class="num" style="font-weight:600">'+esc(f.value||'')+'</span></div>'; }
           const thumb='<div style="width:64px;height:82px;border-radius:8px;border:1px solid var(--line-2);background:var(--wash);flex-shrink:0;display:flex;flex-direction:column;gap:4px;padding:9px"><div style="height:6px;width:70%;background:var(--field-border);border-radius:2px"></div><div style="height:5px;width:90%;background:var(--line-2);border-radius:2px"></div><div style="height:5px;width:60%;background:var(--line-2);border-radius:2px"></div><div style="margin-top:auto;height:9px;width:50%;background:var(--field-border);border-radius:2px"></div></div>';
           let inner=(b.subtitle?'<p style="font-size:14px;line-height:1.5;margin:0 0 12px">'+esc(b.subtitle)+'</p>':(b.title?'<p style="font-size:14px;line-height:1.5;margin:0 0 12px">'+esc(b.title)+'</p>':''))
-            +'<div style="display:flex;gap:12px"><div>'+thumb+'</div><div style="flex:1;display:flex;flex-direction:column;gap:7px">'+fields+'</div></div>'
+            +'<div style="display:flex;gap:12px"><div>'+thumb+'</div><div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:7px">'+fields+'</div></div>'
             +'<div class="doc-details" style="display:none;border-top:1px solid var(--line-3);margin-top:11px;padding-top:11px;flex-direction:column;gap:7px">'+
               (b.details||[]).map(f=>'<div style="display:flex;justify-content:space-between;font-size:12.5px"><span style="color:var(--ink-3)">'+esc(f.label||'')+'</span><span class="num">'+esc(f.value||'')+'</span></div>').join('')+'</div>'
             +'<div class="doc-row" style="display:flex;gap:8px;margin-top:13px"><button class="btn btn--primary btn--sm doc-book" style="flex:1">'+esc(b.confirm_label||'Zuordnen & buchen')+'</button>'
