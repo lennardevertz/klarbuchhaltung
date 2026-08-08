@@ -6,6 +6,7 @@ profiles/
 # Build-Ergebnisse
 build/
 dist/
+.wrangler/
 *.spec.bak
 import_pdfs/
 .venv/

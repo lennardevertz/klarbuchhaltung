@@ -303,7 +303,69 @@ fonts/               eingebettete Schrift für die PDFs
 packaging/           Icons, PyInstaller-Spec, Bauskript
 tests/               Testsuite (läuft auf macOS, Windows und Linux)
 profiles/            deine Buchhaltungen (nicht im Git)
+
+site/                Landing-Page klarbuchhaltung.de (statisch, eigenständig)
+worker.js            Cloudflare Worker: liefert site/ aus, leitet Nebendomains um
+wrangler.jsonc       Deploy-Konfiguration dafür
 ```
+
+---
+
+## Landing-Page deployen
+
+Die Seite unter [klarbuchhaltung.de](https://klarbuchhaltung.de) liegt in `site/`
+und hat mit der App nichts zu tun — reines HTML/CSS, kein Build-Schritt, keine
+externen Fonts oder CDNs. `site/tokens.css` und `site/fonts/` sind Kopien aus
+`static/`, damit der Ordner allein lauffähig ist. Änderst du die Design-Tokens
+der App, musst du sie hier von Hand nachziehen.
+
+Lokal ansehen:
+
+```bash
+cd site && python3 -m http.server 8899     # http://127.0.0.1:8899
+```
+
+Veröffentlichen — **kein CI, das läuft von Hand**:
+
+```bash
+npx wrangler@4 deploy          # aus dem Repo-Root
+npx wrangler@4 deploy --dry-run  # nur Konfiguration prüfen
+```
+
+Die Anmeldung kommt aus dem lokalen wrangler-OAuth-Login (`wrangler login`),
+nicht aus einem Token im Repo. Ein `git push` deployt nichts.
+
+### Domains
+
+| Adresse | Verhalten |
+|---|---|
+| `klarbuchhaltung.de` | die Seite |
+| `www.klarbuchhaltung.de` | 301 auf die Hauptdomain |
+| `klar.levertz.com` | 301 auf die Hauptdomain, Pfad und Query bleiben |
+| `*.workers.dev` | die Seite, bewusst ohne Weiterleitung (zum Testen) |
+
+Die Weiterleitungen macht `worker.js`. Er läuft dank `assets.run_worker_first`
+vor der Asset-Auslieferung — sonst wäre `index.html` schneller und die
+Weiterleitung würde nie greifen. Neue Weiterleitung: Hostname in die Liste
+`WEITERLEITEN` und als `custom_domain` in die `routes` von `wrangler.jsonc`.
+Die Zone muss dafür in Cloudflare liegen, sonst bricht der Deploy ab.
+
+Redirect-Logik ohne Deploy prüfen (`wrangler dev` taugt nicht dafür, dort sieht
+der Worker immer `localhost`):
+
+```bash
+node --input-type=module -e '
+import w from "./worker.js";
+const env = { ASSETS: { fetch: () => new Response("SEITE") } };
+for (const u of ["https://klar.levertz.com/x?a=1", "https://klarbuchhaltung.de/"]) {
+  const r = await w.fetch(new Request(u), env);
+  console.log(r.status, u, "->", r.headers.get("location") ?? "Seite");
+}'
+```
+
+Legt Cloudflare beim Hinzufügen einer Zone A- oder CNAME-Records auf dem Apex
+oder `www` an (passiert beim Import von einem anderen Anbieter), müssen die weg
+— sonst kollidieren sie mit den Custom Domains und `wrangler deploy` bricht ab.
 
 ## Mitmachen
 

@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="de" data-accent="green">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Klar · Buchhaltung, die mitdenkt</title>
+<meta name="description" content="Belege, Buchungen, Rechnungen und die Umsatzsteuer an einem ruhigen Ort. Für Freiberufler in Deutschland, die weltweit abrechnen. Läuft komplett auf deinem Rechner.">
+<meta name="color-scheme" content="light">
+<meta property="og:title" content="Klar · Buchhaltung, die mitdenkt">
+<meta property="og:description" content="Belege, Buchungen, Rechnungen und die Umsatzsteuer an einem ruhigen Ort. Läuft komplett auf deinem Rechner.">
+<meta property="og:type" content="website">
+<link rel="stylesheet" href="tokens.css">
+<link rel="stylesheet" href="landing.css">
+</head>
+<body>
+
+<!-- Kopfzeile -->
+<header class="nav">
+  <div class="wrap nav__inner">
+    <a href="#top" class="logo">
+      <span class="logo__mark">K<span class="logo__dot"></span></span>
+      <span class="logo__word">Klar</span>
+    </a>
+    <nav class="nav__links">
+      <a href="#funktionen">Funktionen</a>
+      <a href="#assistent">Assistent</a>
+      <a href="#steuern">Steuern</a>
+    </nav>
+    <div class="spacer"></div>
+    <a href="https://github.com/lennardevertz/klarbuchhaltung" class="cta cta--dark cta--sm">Loslegen</a>
+  </div>
+</header>
+
+<!-- Hero -->
+<section id="top" class="hero dotted">
+  <div class="hero__glow"></div>
+  <div class="wrap hero__inner">
+    <div>
+      <span class="badge"><span class="badge__dot"></span>Läuft komplett auf deinem Rechner</span>
+      <h1 class="disp">Buchhaltung,<br>die mitdenkt.</h1>
+      <p class="hero__lead">Belege, Buchungen, Rechnungen und die Umsatzsteuer — an einem ruhigen Ort. Für Freiberufler in Deutschland, die weltweit abrechnen.</p>
+      <div class="hero__actions">
+        <a href="https://github.com/lennardevertz/klarbuchhaltung" class="cta cta--dark">Kostenlos starten</a>
+        <a href="#funktionen" class="cta cta--outline">Funktionen ansehen</a>
+      </div>
+      <p class="hero__fineprint">Keine Cloud-Pflicht · keine Weitergabe deiner Daten · Export jederzeit</p>
+    </div>
+
+    <!-- App-Fenster -->
+    <div class="window">
+      <div class="window__bar">
+        <span class="logo__mark" style="width:28px;height:28px;border-radius:9px;font-size:15px">K</span>
+        <span class="window__title">Übersicht</span>
+        <div class="spacer"></div>
+        <span class="window__period">Dieses Jahr
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>
+        </span>
+      </div>
+      <div class="window__body">
+        <div class="kpis">
+          <div class="kpi"><div class="kpi__label">Umsatz</div><div class="kpi__value num">€68.400</div></div>
+          <div class="kpi"><div class="kpi__label">Ausgaben</div><div class="kpi__value num">€19.860</div></div>
+          <div class="kpi kpi--dark"><div class="kpi__label">Gewinn</div><div class="kpi__value num">€48.540</div></div>
+        </div>
+
+        <div class="bars" role="img" aria-label="Umsatz je Monat, Januar bis August, mit Höchstwert im August">
+          <div class="bars__col"><span class="bars__bar" style="height:38%"></span><span class="bars__label">Jan</span></div>
+          <div class="bars__col"><span class="bars__bar" style="height:52%"></span><span class="bars__label">Feb</span></div>
+          <div class="bars__col"><span class="bars__bar" style="height:44%"></span><span class="bars__label">Mär</span></div>
+          <div class="bars__col"><span class="bars__bar" style="height:67%"></span><span class="bars__label">Apr</span></div>
+          <div class="bars__col"><span class="bars__bar" style="height:58%"></span><span class="bars__label">Mai</span></div>
+          <div class="bars__col"><span class="bars__bar bars__bar--on" style="height:81%"></span><span class="bars__label">Jun</span></div>
+          <div class="bars__col"><span class="bars__bar" style="height:72%"></span><span class="bars__label">Jul</span></div>
+          <div class="bars__col"><span class="bars__bar bars__bar--on" style="height:94%"></span><span class="bars__label">Aug</span></div>
+        </div>
+
+        <div class="feed">
+          <div class="feed__row">
+            <span class="feed__glyph feed__glyph--in">↑</span>
+            <div class="feed__text">
+              <div class="feed__name">Acme Studio GmbH</div>
+              <div class="feed__meta">Rechnung 2026-0041 · SEPA</div>
+            </div>
+            <span class="feed__amount feed__amount--in num">+2.400,00 €</span>
+          </div>
+          <div class="feed__row">
+            <span class="feed__glyph feed__glyph--soft">↓</span>
+            <div class="feed__text">
+              <div class="feed__name">Adobe</div>
+              <div class="feed__meta">Software · 19 % VSt.</div>
+            </div>
+            <span class="feed__amount num">−64,99 €</span>
+          </div>
+          <div class="feed__row">
+            <span class="feed__glyph feed__glyph--warn">↓</span>
+            <div class="feed__text">
+              <div class="feed__name">Deutsche Bahn</div>
+              <div class="feed__meta">Reisekosten · Beleg fehlt</div>
+            </div>
+            <span class="feed__amount num">−128,40 €</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Funktionen -->
+<section id="funktionen" class="section section--surface">
+  <div class="wrap">
+    <div class="features__head">
+      <p class="kicker">Was Klar für dich tut</p>
+      <h2>Vom Beleg zur Buchung</h2>
+      <p class="section__lead">Du wirfst Belege rein, Klar liest sie, schlägt den Buchungssatz vor und du bestätigst. Was übrig bleibt, ist ein Buch, das prüfbar ist.</p>
+    </div>
+    <div class="features">
+      <div class="feature">
+        <span class="feature__icon feature__icon--accent">
+          <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M20 16v2a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2v-2"/></svg>
+        </span>
+        <h3>Belege lesen sich selbst</h3>
+        <p>PDF oder Foto reinziehen — Händler, Betrag und Datum werden erkannt und der passenden Zahlung zugeordnet.</p>
+      </div>
+      <div class="feature">
+        <span class="feature__icon feature__icon--azure">
+          <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h9"/><circle cx="4" cy="6" r="1.3"/><circle cx="4" cy="12" r="1.3"/><circle cx="4" cy="18" r="1.3"/></svg>
+        </span>
+        <h3>Buchungssätze auf Vorschlag</h3>
+        <p>SKR03-Konto, Steuerschlüssel und Gegenkonto kommen als Vorschlag. Du bestätigst, Klar schreibt fest.</p>
+      </div>
+      <div class="feature">
+        <span class="feature__icon feature__icon--amber">
+          <svg width="23" height="23" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h11l5 5v11H4z"/><path d="M15 4v5h5"/><path d="M8 14h8M8 17.5h5"/></svg>
+        </span>
+        <h3>Rechnungen weltweit</h3>
+        <p>Jede Währung, mit oder ohne USt, Reverse Charge und §19. Versand, Mahnwesen und Zahlungsabgleich inklusive.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Übersicht -->
+<section class="section section--paper">
+  <div class="wrap">
+    <div class="panel">
+      <div class="panel__glow"></div>
+      <div class="panel__inner">
+        <div>
+          <p class="kicker">Übersicht</p>
+          <h2 class="disp">Zahlen, die du sofort verstehst</h2>
+          <p class="panel__lead">Umsatz, Ausgaben, Gewinn und was noch offen ist — ein Blick, kein Tabellen-Labyrinth. Zeitraum frei wählbar, Standard ist das laufende Jahr.</p>
+          <div class="checks">
+            <div class="check">
+              <span class="check__mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span>Zeitraum umstellen und alles rechnet sofort mit — Monat, Quartal, Jahr.</span>
+            </div>
+            <div class="check">
+              <span class="check__mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span>Ausgaben nach Kategorie, offene Posten und Rücklage für die Steuer.</span>
+            </div>
+            <div class="check">
+              <span class="check__mark"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg></span>
+              <span>Jede Zahl führt zurück auf die Buchung, aus der sie kommt.</span>
+            </div>
+          </div>
+        </div>
+        <div class="tiles">
+          <div class="tile">
+            <div class="tile__label">Offene Posten</div>
+            <div class="tile__value num">€6.120</div>
+            <div class="tile__note tile__note--warn">2 überfällig</div>
+          </div>
+          <div class="tile">
+            <div class="tile__label">USt Q2</div>
+            <div class="tile__value num">€2.679</div>
+            <div class="tile__note">fällig 10. Juli</div>
+          </div>
+          <div class="tile">
+            <div class="tile__label">Rücklage</div>
+            <div class="tile__value num">72 %</div>
+            <div class="meter"><span style="width:72%"></span></div>
+          </div>
+          <div class="tile">
+            <div class="tile__label">Ohne Beleg</div>
+            <div class="tile__value num">3</div>
+            <div class="tile__note">Buchungen</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Assistent -->
+<section id="assistent" class="section section--surface assistant">
+  <div class="wrap split">
+    <div>
+      <p class="kicker">Assistent</p>
+      <h2>Frag einfach nach</h2>
+      <p class="section__lead">Der Assistent kennt deine Bücher. Er antwortet auf Fragen, erstellt Rechnungen und erfasst Zahlungen — und legt jede Aktion vorher zur Bestätigung vor. Nie im Stillen.</p>
+      <div class="prompts">
+        <span class="prompt">Wofür gebe ich am meisten aus?</span>
+        <span class="prompt">Rechnung für Acme, 2.400 €</span>
+        <span class="prompt">USt für Q2</span>
+      </div>
+    </div>
+    <div class="chat">
+      <div class="msg msg--user">Wie viel Umsatzsteuer schulde ich für Q2?</div>
+      <div class="msg msg--ai">Für Q2 kommst du auf <strong>2.679,40 €</strong> Zahllast — fällig am 10. Juli. Drei Belege fehlen noch, das könnte den Betrag senken.</div>
+      <div class="chatcard">
+        <div class="chatcard__head">
+          <span class="chatcard__title">USt-Voranmeldung Q2</span>
+          <span class="chatcard__state">Entwurf</span>
+        </div>
+        <div class="chatcard__amount num">€2.679,40</div>
+        <div class="chatcard__actions">
+          <span class="chatcard__primary">Prüfen &amp; einreichen</span>
+          <span class="chatcard__secondary">Später</span>
+        </div>
+      </div>
+      <div class="chat__note">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>
+        Antwortet lokal, ohne deine Daten zu senden
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Steuern -->
+<section id="steuern" class="section section--paper section--bordered">
+  <div class="wrap tax">
+    <div>
+      <div class="ustva">
+        <div class="ustva__head">
+          <div>
+            <div class="ustva__title">USt-Voranmeldung</div>
+            <div class="ustva__sub">Q2 2026 · ELSTER</div>
+          </div>
+          <span class="ustva__state">Bereit</span>
+        </div>
+        <div class="ustva__lines">
+          <div class="kzline">
+            <span class="kzline__kz num">81</span>
+            <span class="kzline__label">Umsätze 19 % · Bemessung</span>
+            <span class="kzline__value num">€17.600,00</span>
+          </div>
+          <div class="kzline">
+            <span class="kzline__kz num">81</span>
+            <span class="kzline__label">Umsatzsteuer 19 %</span>
+            <span class="kzline__value num">€3.344,00</span>
+          </div>
+          <div class="kzline">
+            <span class="kzline__kz num">66</span>
+            <span class="kzline__label">Vorsteuerbeträge</span>
+            <span class="kzline__value num">€664,60</span>
+          </div>
+          <div class="kzline">
+            <span class="kzline__kz num">21</span>
+            <span class="kzline__label">Reverse Charge (§13b)</span>
+            <span class="kzline__value num">€0,00</span>
+          </div>
+        </div>
+        <dl class="ustva__total">
+          <dt>Zahllast · Kz 83</dt>
+          <dd class="disp">€2.679,40</dd>
+        </dl>
+      </div>
+      <div class="perforation"></div>
+    </div>
+    <div class="tax__copy">
+      <p class="kicker">Steuern</p>
+      <h2>Fertig für das Finanzamt</h2>
+      <p class="section__lead">USt-Voranmeldung im ELSTER-Layout — Kennzahlen an der richtigen Stelle, damit du nur noch abtippen oder exportieren musst. Dazu EÜR, BWA und die Summen- und Saldenliste.</p>
+      <div class="reports">
+        <div class="report">
+          <span class="report__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
+          <div class="report__text"><div class="report__name">USt-Voranmeldung</div><div class="report__note">Kennzahlen im ELSTER-Layout</div></div>
+          <span class="report__tag">Quartal</span>
+        </div>
+        <div class="report">
+          <span class="report__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
+          <div class="report__text"><div class="report__name">EÜR</div><div class="report__note">Einnahmen-Überschuss-Rechnung</div></div>
+          <span class="report__tag">Jahr</span>
+        </div>
+        <div class="report">
+          <span class="report__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
+          <div class="report__text"><div class="report__name">BWA</div><div class="report__note">Betriebswirtschaftliche Auswertung</div></div>
+          <span class="report__tag">Monat</span>
+        </div>
+        <div class="report">
+          <span class="report__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg></span>
+          <div class="report__text"><div class="report__name">Summen- und Saldenliste</div><div class="report__note">Für deinen Steuerberater</div></div>
+          <span class="report__tag">Export</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Schluss-CTA -->
+<section class="section final section--surface dotted">
+  <div class="wrap">
+    <h2>Bereit, wenn du es bist</h2>
+    <p>Lade Klar herunter, importiere deine Umsätze und lass den Rest von hier aus laufen.</p>
+    <a href="https://github.com/lennardevertz/klarbuchhaltung" class="cta cta--dark">Kostenlos starten</a>
+  </div>
+</section>
+
+<!-- Fusszeile -->
+<footer class="footer">
+  <div class="wrap footer__inner">
+    <div class="logo logo--sm">
+      <span class="logo__mark">K</span>
+      <span class="logo__word">Klar</span>
+    </div>
+    <div class="spacer"></div>
+    <nav>
+      <a href="#funktionen">Funktionen</a>
+      <a href="#steuern">Steuern</a>
+    </nav>
+    <span class="footer__copy">© 2026 Klar</span>
+  </div>
+</footer>
+
+</body>
+</html>

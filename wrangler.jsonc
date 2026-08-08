@@ -1,0 +1,23 @@
+{
+  // Landing-Page unter site/ plus ein winziger Worker, der klar.levertz.de
+  // auf klarbuchhaltung.de umleitet. Die Flask-App wird hier nicht deployt,
+  // die läuft lokal.
+  "name": "klarbuchhaltung",
+  "compatibility_date": "2026-08-07",
+  "main": "worker.js",
+
+  "assets": {
+    "directory": "./site",
+    "binding": "ASSETS",
+    // Ohne das würde index.html direkt ausgeliefert und die Weiterleitung
+    // in worker.js nie erreicht.
+    "run_worker_first": true
+  },
+
+  // Beide Zonen liegen in Cloudflare (klarbuchhaltung.de, levertz.com).
+  "routes": [
+    { "pattern": "klarbuchhaltung.de", "custom_domain": true },
+    { "pattern": "www.klarbuchhaltung.de", "custom_domain": true },
+    { "pattern": "klar.levertz.com", "custom_domain": true }
+  ]
+}
