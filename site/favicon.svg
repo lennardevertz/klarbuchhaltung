@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 89 89">
+  <!-- App-Icon aus packaging/make_icon.py. Hier die Original-Variante mit
+       Papier-Hintergrund: im Browser-Tab steht sie auf fremdem Grund und
+       braucht die helle Fläche. Farben hart kodiert, eine eigenständige
+       Datei sieht die Tokens nicht. -->
+  <rect width="89" height="89" rx="22.5" fill="#FBF9F3"/>
+  <rect x="19.80" y="48.06" width="12.02" height="17.80" rx="3.36" fill="#16171D"/>
+  <rect x="38.49" y="36.49" width="12.02" height="29.37" rx="3.36" fill="#16171D"/>
+  <rect x="57.18" y="23.14" width="12.02" height="42.72" rx="3.36" fill="#1FA971"/>
+</svg>

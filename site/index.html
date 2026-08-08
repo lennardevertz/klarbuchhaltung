@@ -9,16 +9,31 @@
 <meta property="og:title" content="Klar · Buchhaltung, die mitdenkt">
 <meta property="og:description" content="Belege, Buchungen, Rechnungen und die Umsatzsteuer an einem ruhigen Ort. Läuft komplett auf deinem Rechner.">
 <meta property="og:type" content="website">
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="tokens.css">
 <link rel="stylesheet" href="landing.css">
 </head>
 <body>
 
+<!--
+  Bildmarke: dieselbe Geometrie wie das App-Icon (packaging/make_icon.py),
+  nur invertiert — dunkles Squircle statt Papier, damit sie auf dem hellen
+  Seitenhintergrund steht. Einmal als symbol, dreimal per use eingesetzt.
+-->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
+  <symbol id="mark" viewBox="0 0 89 89">
+    <rect width="89" height="89" rx="22.5" fill="var(--ink)"/>
+    <rect x="19.80" y="48.06" width="12.02" height="17.80" rx="3.36" fill="var(--paper)"/>
+    <rect x="38.49" y="36.49" width="12.02" height="29.37" rx="3.36" fill="var(--paper)"/>
+    <rect x="57.18" y="23.14" width="12.02" height="42.72" rx="3.36" fill="var(--accent)"/>
+  </symbol>
+</svg>
+
 <!-- Kopfzeile -->
 <header class="nav">
   <div class="wrap nav__inner">
     <a href="#top" class="logo">
-      <span class="logo__mark">K<span class="logo__dot"></span></span>
+      <svg class="mark" aria-hidden="true"><use href="#mark"/></svg>
       <span class="logo__word">Klar</span>
     </a>
     <nav class="nav__links">
@@ -49,7 +64,7 @@
     <!-- App-Fenster -->
     <div class="window">
       <div class="window__bar">
-        <span class="logo__mark" style="width:28px;height:28px;border-radius:9px;font-size:15px">K</span>
+        <svg class="mark mark--sm" aria-hidden="true"><use href="#mark"/></svg>
         <span class="window__title">Übersicht</span>
         <div class="spacer"></div>
         <span class="window__period">Dieses Jahr
@@ -310,7 +325,7 @@
 <footer class="footer">
   <div class="wrap footer__inner">
     <div class="logo logo--sm">
-      <span class="logo__mark">K</span>
+      <svg class="mark mark--sm" aria-hidden="true"><use href="#mark"/></svg>
       <span class="logo__word">Klar</span>
     </div>
     <div class="spacer"></div>

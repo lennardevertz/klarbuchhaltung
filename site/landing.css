@@ -44,20 +44,14 @@ h1,h2,h3,p{ margin:0 }
 }
 
 /* ---------- Logo ---------- */
+/* .mark ist die Bildmarke (symbol #mark im HTML), .logo die Kombination
+   aus Marke und Wortmarke. */
+.mark{ display:block; flex-shrink:0; width:34px; height:34px }
+.mark--sm{ width:28px; height:28px }
+
 .logo{ display:flex; align-items:center; gap:10px; color:var(--ink) }
 .logo:hover{ text-decoration:none }
-.logo__mark{
-  position:relative; width:34px; height:34px; border-radius:var(--r-md);
-  background:var(--ink); display:flex; align-items:center; justify-content:center;
-  font-family:var(--font-display); font-weight:var(--fw-bold); font-size:18px; color:var(--surface);
-}
-.logo__dot{
-  position:absolute; right:-3px; top:-3px; width:11px; height:11px; border-radius:50%;
-  background:var(--accent); border:2.5px solid var(--paper);
-}
 .logo__word{ font-family:var(--font-display); font-weight:var(--fw-bold); font-size:19px; letter-spacing:var(--tracking-tight) }
-
-.logo--sm .logo__mark{ width:28px; height:28px; border-radius:9px; font-size:15px }
 .logo--sm .logo__word{ font-size:16px }
 
 /* ---------- Buttons ---------- */
