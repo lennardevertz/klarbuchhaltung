@@ -38,13 +38,24 @@ def _profit_invoice(conn, cfg, customer, net):
                         paid_date="2026-05-01", render=False)
 
 
+def _fake_today(monkeypatch, tag):
+    """core.date.today() auf ein festes Datum setzen – die Hochrechnung hängt daran."""
+    import datetime as _dt
+
+    class _D(_dt.date):
+        @classmethod
+        def today(cls):
+            return tag
+    monkeypatch.setattr(core, "date", _D)
+
+
 def test_income_tax_estimate_zieht_vorsorge_ab_und_splittet(conn, cfg, customer):
     _profit_invoice(conn, cfg, customer, 60000)
     core.update_settings(est_veranlagung="zusammen", est_krankenversicherung=10000,
                          est_weitere_einkuenfte=0, est_kirchensteuer="9", est_soli=False)
     r = core.income_tax_estimate(conn, cfg, 2026)
     assert r["splitting"] is True
-    assert r["zve"] == r["gewinn"] + 0 - 10000 - 72          # Splitting-Pauschbetrag 72
+    assert r["zve"] == r["gewinn_jahr"] + 0 - 10000 - 72     # Splitting-Pauschbetrag 72
     assert r["est"] == core.est_tarif(r["zve"], 2026, True)
     assert r["kirchensteuer"] == round(r["est"] * 0.09, 2)
     assert r["gesamt"] == round(r["est"] + r["soli"] + r["kirchensteuer"], 2)
@@ -55,12 +66,62 @@ def test_income_tax_estimate_ohne_gewinn_ist_null(conn, cfg):
     assert r["est"] == 0.0 and r["gesamt"] == 0.0
 
 
+# ── Hochrechnung aufs Gesamtjahr ─────────────────────────────────────────
+def test_jahresanteil_zaehlt_verstrichene_tage():
+    from datetime import date
+    assert core._jahresanteil(2026, date(2026, 1, 1)) == 1 / 365
+    assert core._jahresanteil(2026, date(2026, 7, 2)) == 183 / 365   # Jahresmitte
+    assert core._jahresanteil(2026, date(2026, 12, 31)) == 1.0
+    assert core._jahresanteil(2025, date(2026, 7, 2)) == 1.0         # abgelaufenes Jahr
+
+
+def test_income_tax_estimate_rechnet_gewinn_aufs_jahr_hoch(conn, cfg, customer, monkeypatch):
+    from datetime import date
+    _fake_today(monkeypatch, date(2026, 7, 2))
+    _profit_invoice(conn, cfg, customer, 30000)
+    core.update_settings(est_veranlagung="einzeln", est_krankenversicherung=0,
+                         est_weitere_einkuenfte=0, est_kirchensteuer="0", est_soli=False)
+    r = core.income_tax_estimate(conn, cfg, 2026)
+    assert r["hochgerechnet"] is True and r["tage"] == 183
+    assert r["gewinn_jahr"] == round(r["gewinn"] / (183 / 365), 2)
+    # Progression: Jahressteuer liegt über der doppelten Steuer auf den halben Gewinn
+    assert r["gesamt"] > 2 * core.est_tarif(r["gewinn"] - 36, 2026)
+    assert r["ruecklage"] == round(r["gesamt"] * (183 / 365), 2)
+
+
+def test_income_tax_estimate_ohne_hochrechnung_am_jahresanfang(conn, cfg, customer, monkeypatch):
+    from datetime import date
+    _fake_today(monkeypatch, date(2026, 1, 20))          # < 60 Tage Basis
+    _profit_invoice(conn, cfg, customer, 30000)
+    r = core.income_tax_estimate(conn, cfg, 2026)
+    assert r["hochgerechnet"] is False
+    assert r["gewinn_jahr"] == r["gewinn"] and r["ruecklage"] == r["gesamt"]
+
+
+def test_income_tax_estimate_abgelaufenes_jahr_wird_nicht_hochgerechnet(conn, cfg, customer,
+                                                                       monkeypatch):
+    from datetime import date
+    _fake_today(monkeypatch, date(2027, 3, 1))
+    _profit_invoice(conn, cfg, customer, 30000)
+    r = core.income_tax_estimate(conn, cfg, 2026)
+    assert r["hochgerechnet"] is False and r["gewinn_jahr"] == r["gewinn"]
+
+
 # ── Rücklage (USt laufendes Quartal + ESt laufendes Jahr) ─────────────────
 def test_tax_reserve_setzt_sich_aus_ust_und_est_zusammen(conn, cfg):
     r = core.tax_reserve(conn, cfg)
     assert r["est"]["year"] == r["year"]
-    assert r["gesamt"] == round(r["ust"] + r["est"]["gesamt"], 2)
+    assert r["gesamt"] == round(r["ust"] + r["est"]["ruecklage"], 2)
     assert r["ust_label"].startswith("Q")
+
+
+def test_tax_reserve_legt_nur_anteilige_est_zurueck(conn, cfg, customer, monkeypatch):
+    from datetime import date
+    _fake_today(monkeypatch, date(2026, 7, 2))
+    _profit_invoice(conn, cfg, customer, 30000)
+    r = core.tax_reserve(conn, cfg)
+    assert r["est"]["ruecklage"] < r["est"]["gesamt"]     # Jahresprognose > heutige Rücklage
+    assert r["gesamt"] == round(r["ust"] + r["est"]["ruecklage"], 2)
 
 
 # ── Anstehende Termine ───────────────────────────────────────────────────

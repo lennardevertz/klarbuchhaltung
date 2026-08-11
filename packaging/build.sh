@@ -17,7 +17,7 @@ cd "$REPO"
 PY="${PYTHON:-$REPO/.venv/bin/python}"
 [ -x "$PY" ] || PY="$(command -v python3 || command -v python)"
 
-VERSION="$("$PY" -c "import sys;print(sys.argv[1])" "${VERSION:-1.0.0}")"
+VERSION="$("$PY" -c "import sys;print(sys.argv[1])" "${VERSION:-1.0.1}")"
 RELEASE="$REPO/dist/release"
 mkdir -p "$RELEASE"
 

@@ -139,9 +139,15 @@
           <span class="num" style="font-weight:600;color:#16311F;white-space:nowrap;flex-shrink:0">{{ reserve.ust|eur }}</span>
         </div>
         <div class="row" style="justify-content:space-between;align-items:baseline;gap:12px;font-size:13px">
-          <span style="color:#2E5A41;min-width:0">Einkommensteuer {{ reserve.year }} <span style="font-size:11px;color:#4C8062;font-weight:600">· geschätzt</span></span>
-          <span class="num" style="font-weight:600;color:#16311F;white-space:nowrap;flex-shrink:0">{{ reserve.est.gesamt|eur }}</span>
+          <span style="color:#2E5A41;min-width:0">Einkommensteuer {{ reserve.year }} <span style="font-size:11px;color:#4C8062;font-weight:600">· {{ 'anteilig' if reserve.est.hochgerechnet else 'geschätzt' }}</span></span>
+          <span class="num" style="font-weight:600;color:#16311F;white-space:nowrap;flex-shrink:0">{{ reserve.est.ruecklage|eur }}</span>
         </div>
+        {% if reserve.est.hochgerechnet %}
+        <div class="row" style="justify-content:space-between;align-items:baseline;gap:12px;font-size:13px">
+          <span style="color:#2E5A41;min-width:0">Prognose ganzes Jahr <span style="font-size:11px;color:#4C8062;font-weight:600">· Hochrechnung</span></span>
+          <span class="num" style="font-weight:600;color:#2E5A41;white-space:nowrap;flex-shrink:0">{{ reserve.est.gesamt|eur }}</span>
+        </div>
+        {% endif %}
       </div>
       {% if reserve.est.vorauszahlung_jahr is not none %}
       <div class="row" style="justify-content:space-between;align-items:baseline;gap:12px;font-size:12.5px;margin-top:12px;padding-top:12px;border-top:1px solid #CFE7D8">
@@ -151,7 +157,7 @@
       </div>
       {% endif %}
       <div style="font-size:11.5px;color:#4C8062;margin-top:14px;line-height:1.5">
-        USt laufendes Quartal · ESt §32a auf Gewinn {{ reserve.est.gewinn|eur }}{% if reserve.est.kirchensteuer or reserve.est.soli %} (inkl. {{ 'KiSt' if reserve.est.kirchensteuer }}{{ ' + ' if reserve.est.kirchensteuer and reserve.est.soli }}{{ 'Soli' if reserve.est.soli }}){% endif %}. <a href="{{ url_for('settings', tab='steuer') }}" style="color:#1F6B45;font-weight:600">Anpassen</a>
+        USt laufendes Quartal · ESt §32a auf {% if reserve.est.hochgerechnet %}hochgerechneten Jahresgewinn {{ reserve.est.gewinn_jahr|eur }} (bisher {{ reserve.est.gewinn|eur }} in {{ reserve.est.tage }} Tagen){% else %}Gewinn {{ reserve.est.gewinn|eur }}{% endif %}{% if reserve.est.kirchensteuer or reserve.est.soli %} (inkl. {{ 'KiSt' if reserve.est.kirchensteuer }}{{ ' + ' if reserve.est.kirchensteuer and reserve.est.soli }}{{ 'Soli' if reserve.est.soli }}){% endif %}. <a href="{{ url_for('settings', tab='steuer') }}" style="color:#1F6B45;font-weight:600">Anpassen</a>
       </div>
     </div>
 

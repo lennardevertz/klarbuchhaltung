@@ -2554,39 +2554,64 @@ def _soli(est: float, year: int, splitting: bool) -> float:
     return round(min(0.055 * est, 0.119 * (est - fg)), 2)
 
 
+_HOCHRECHNUNG_AB_TAGEN = 60       # vorher ist die Basis zu dünn für eine Jahresprognose
+
+
+def _jahresanteil(year: int, today: date | None = None) -> float:
+    """Anteil des Jahres, der bisher verstrichen ist (1.0 für abgelaufene Jahre)."""
+    today = today or date.today()
+    if year != today.year:
+        return 1.0
+    tage = (today - date(year, 1, 1)).days + 1
+    im_jahr = (date(year + 1, 1, 1) - date(year, 1, 1)).days
+    return tage / im_jahr
+
+
 def income_tax_estimate(conn, cfg, year: int) -> dict:
-    """Geschätzte Einkommensteuer (+ optional Soli, Kirchensteuer) auf den EÜR-Gewinn des Jahres.
+    """Geschätzte Einkommensteuer (+ optional Soli, Kirchensteuer) für das ganze Jahr.
+    Beim laufenden Jahr wird der bisherige EÜR-Gewinn auf das Gesamtjahr hochgerechnet
+    ('läuft weiter wie bisher'), weil der §32a-Tarif progressiv ist und eine Steuer auf den
+    Zwischenstand die Jahreslast systematisch unterschätzt.
     Annahme: keine weiteren Einkünfte außer 'est_weitere_einkuenfte' aus den Einstellungen.
     zvE = Gewinn + weitere Einkünfte − Krankenversicherung − Sonderausgaben-Pauschbetrag."""
     s = load_settings()
     gewinn = euer(conn, cfg, f"{year}-01-01", f"{year}-12-31")["gewinn"]
+    anteil = _jahresanteil(year)
+    tage = round(anteil * 365)
+    hochgerechnet = anteil < 1.0 and tage >= _HOCHRECHNUNG_AB_TAGEN
+    gewinn_jahr = round(gewinn / anteil, 2) if hochgerechnet else gewinn
     splitting = (s.get("est_veranlagung") == "zusammen")
     kv = float(s.get("est_krankenversicherung") or 0)
     weitere = float(s.get("est_weitere_einkuenfte") or 0)
     pausch = 72 if splitting else 36              # Sonderausgaben-Pauschbetrag
-    zve = max(0.0, gewinn + weitere - kv - pausch)
+    zve = max(0.0, gewinn_jahr + weitere - kv - pausch)
     est = est_tarif(zve, year, splitting)
     soli = _soli(est, year, splitting) if s.get("est_soli") else 0.0
     kist_satz = float(s.get("est_kirchensteuer") or 0)
     kist = round(est * kist_satz / 100, 2)
     gesamt = round(est + soli + kist, 2)
+    # Anteilige Rücklage 'heute': der bisher verdiente Teil der prognostizierten Jahressteuer.
+    ruecklage = round(gesamt * anteil, 2) if hochgerechnet else gesamt
     # Vom Finanzamt festgesetzte Vorauszahlung je Quartal (nicht berechenbar → aus Einstellungen)
     vz = s.get("est_vorauszahlung")
     vz_q = float(vz) if vz not in (None, "") else None
     vz_jahr = round(vz_q * 4, 2) if vz_q is not None else None
-    # Differenz: was du laut §32a schuldest − was du per Vorauszahlung bereits abführst
+    # Differenz: was du laut §32a fürs Jahr schuldest − was du per Vorauszahlung abführst
     # > 0 = voraussichtliche Nachzahlung, < 0 = voraussichtliche Erstattung
     differenz = round(gesamt - vz_jahr, 2) if vz_jahr is not None else None
-    return {"year": year, "gewinn": gewinn, "zve": zve, "splitting": splitting,
+    return {"year": year, "gewinn": gewinn, "gewinn_jahr": gewinn_jahr, "zve": zve,
+            "anteil": round(anteil, 4), "hochgerechnet": hochgerechnet, "tage": tage,
+            "splitting": splitting,
             "est": round(est, 2), "soli": round(soli, 2), "kirchensteuer": kist,
             "kist_satz": kist_satz, "krankenversicherung": kv, "weitere_einkuenfte": weitere,
-            "gesamt": gesamt, "vorauszahlung_q": vz_q, "vorauszahlung_jahr": vz_jahr,
+            "gesamt": gesamt, "ruecklage": ruecklage,
+            "vorauszahlung_q": vz_q, "vorauszahlung_jahr": vz_jahr,
             "differenz": differenz}
 
 
 def tax_reserve(conn, cfg=None) -> dict:
     """Empfohlene Steuerrücklage 'heute': USt-Zahllast des laufenden Quartals (exakt) +
-    geschätzte Einkommensteuer des laufenden Jahres (§32a)."""
+    anteilige Einkommensteuer des laufenden Jahres (§32a auf den hochgerechneten Gewinn)."""
     cfg = cfg or load_config()
     today = date.today()
     year, q = today.year, (today.month - 1) // 3 + 1
@@ -2594,7 +2619,7 @@ def tax_reserve(conn, cfg=None) -> dict:
     ust = round(float(_vat_figures(conn, cfg, qlo, qhi)["zahllast"]), 2)
     est = income_tax_estimate(conn, cfg, year)
     return {"year": year, "quarter": q, "ust": ust, "ust_label": f"Q{q} {year}",
-            "est": est, "gesamt": round(ust + est["gesamt"], 2)}
+            "est": est, "gesamt": round(ust + est["ruecklage"], 2)}
 
 
 def upcoming_deadlines(conn, cfg=None, limit=3) -> list:

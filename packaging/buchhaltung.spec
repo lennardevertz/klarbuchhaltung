@@ -57,7 +57,7 @@ if sys.platform == "darwin":
         info_plist={
             "CFBundleName": NAME,
             "CFBundleDisplayName": NAME,
-            "CFBundleShortVersionString": "1.0.0",
+            "CFBundleShortVersionString": "1.0.1",
             "NSHighResolutionCapable": True,
             "LSMinimumSystemVersion": "11.0",
             # Der Server läuft auf 127.0.0.1 – ohne das blockiert ATS ihn.
