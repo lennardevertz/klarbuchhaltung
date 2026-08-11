@@ -1,6 +1,27 @@
 # Buchhaltung
 
 Lokale Buchhaltung für Freelancer und kleine Betriebe — statt Cloud-Abo.
+
+### Für Agenten
+
+Diesen Text an Claude Code, Codex o. Ä. schicken, dann läuft die App:
+
+```text
+Installiere https://github.com/lennardevertz/klarbuchhaltung und starte es.
+Voraussetzung ist Python 3.11 oder neuer.
+
+1. Repo klonen und hineinwechseln.
+2. Virtuelle Umgebung anlegen: python3 -m venv .venv
+3. Abhängigkeiten installieren: .venv/bin/pip install -r requirements.txt
+4. Web-App starten: ./bb-web  (läuft auf http://127.0.0.1:8765, öffnet den Browser)
+   Alternativ als eigenes Fenster: .venv/bin/python desktop.py
+
+Danach führt die App selbst durch die Einrichtung (Firma, Adresse, USt-IdNr.,
+Bank, Steuervorgaben) — die musst du nicht ausfüllen, sag mir nur Bescheid,
+wenn die Seite läuft. Es laufen keine Daten irgendwo hin: alles bleibt in einer
+lokalen SQLite-Datei, und der Server hört ausschließlich auf 127.0.0.1.
+```
+
 Ausgelegt auf deutsche **Regelbesteuerung**, **EÜR** und **USt-Voranmeldung über
 ELSTER**, inklusive **Reverse Charge** für EU-Kunden und Drittland.
 
