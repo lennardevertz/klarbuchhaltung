@@ -197,6 +197,15 @@ h1,h2,h3,p{ margin:0 }
 .meter{ height:6px; border-radius:var(--r-pill); background:rgba(255,255,255,.14); margin-top:10px; overflow:hidden }
 .meter span{ display:block; height:100%; background:var(--accent) }
 
+/* ---------- Banking ---------- */
+/* Das Fenster steht hier allein statt unter einer Hero-Spalte — die feed-Liste
+   soll darum nicht noch einmal oben abgetrennt werden. */
+.feed--flush{ border-top:0 }
+.feed--flush .feed__row:last-child{ border-bottom:0; padding-bottom:0 }
+.banking .kicker{ color:var(--azure) }
+.banking h2{ margin-bottom:var(--s-4) }
+.banking .section__lead{ margin-bottom:26px }
+
 /* ---------- Assistent ---------- */
 .split{ display:grid; grid-template-columns:1fr 1fr; gap:52px; align-items:center }
 .assistant .kicker{ color:var(--azure) }
@@ -312,6 +321,7 @@ h1,h2,h3,p{ margin:0 }
   .panel{ padding:var(--s-8) }
   .nav__links{ display:none }
   .tax > .tax__copy{ order:-1 }
+  .banking > .banking__copy{ order:-1 }
 }
 
 @media (max-width:560px){

@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Klar · Buchhaltung, die mitdenkt</title>
-<meta name="description" content="Belege, Buchungen, Rechnungen und die Umsatzsteuer an einem ruhigen Ort. Für Freiberufler in Deutschland, die weltweit abrechnen. Läuft komplett auf deinem Rechner.">
+<title>Klar — Buchhaltungssoftware mit Bankkonto für Freiberufler</title>
+<meta name="description" content="Buchhaltungssoftware mit angebundenem Bankkonto: Umsätze, Belege, Rechnungen und die USt-Voranmeldung an einem Ort. Für Freiberufler in Deutschland, die weltweit abrechnen. Läuft komplett auf deinem Rechner.">
 <meta name="color-scheme" content="light">
-<meta property="og:title" content="Klar · Buchhaltung, die mitdenkt">
-<meta property="og:description" content="Belege, Buchungen, Rechnungen und die Umsatzsteuer an einem ruhigen Ort. Läuft komplett auf deinem Rechner.">
+<meta property="og:title" content="Klar — Buchhaltungssoftware mit Bankkonto für Freiberufler">
+<meta property="og:description" content="Umsätze, Belege, Rechnungen und die Umsatzsteuer an einem ruhigen Ort. Bankkonto direkt angebunden, läuft komplett auf deinem Rechner.">
 <meta property="og:type" content="website">
 <link rel="icon" href="favicon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="tokens.css">
@@ -38,8 +38,10 @@
     </a>
     <nav class="nav__links">
       <a href="#funktionen">Funktionen</a>
+      <a href="#banking">Banking</a>
       <a href="#assistent">Assistent</a>
       <a href="#steuern">Steuern</a>
+      <a href="/ratgeber">Ratgeber</a>
     </nav>
     <div class="spacer"></div>
     <a href="https://github.com/lennardevertz/klarbuchhaltung" class="cta cta--dark cta--sm">Loslegen</a>
@@ -114,6 +116,86 @@
             </div>
             <span class="feed__amount num">−128,40 €</span>
           </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Banking -->
+<section id="banking" class="section section--paper">
+  <div class="wrap split banking">
+    <!-- Kontoauszug: dieselben feed-Zeilen wie im Hero, nur mit Abgleich-Status
+         statt Beleg-Hinweis. -->
+    <div class="window">
+      <div class="window__bar">
+        <svg class="mark mark--sm" aria-hidden="true"><use href="#mark"/></svg>
+        <span class="window__title">Umsätze</span>
+        <div class="spacer"></div>
+        <span class="window__period">Juli</span>
+      </div>
+      <div class="window__body">
+        <div class="feed feed--flush">
+          <div class="feed__row">
+            <span class="feed__glyph feed__glyph--in">↑</span>
+            <div class="feed__text">
+              <div class="feed__name">Acme Studio GmbH</div>
+              <div class="feed__meta">Rechnung 2026-0041 · zugeordnet</div>
+            </div>
+            <span class="feed__amount feed__amount--in num">+2.400,00 €</span>
+          </div>
+          <div class="feed__row">
+            <span class="feed__glyph feed__glyph--soft">↓</span>
+            <div class="feed__text">
+              <div class="feed__name">Hetzner Online</div>
+              <div class="feed__meta">Server · Regel gelernt</div>
+            </div>
+            <span class="feed__amount num">−41,60 €</span>
+          </div>
+          <div class="feed__row">
+            <span class="feed__glyph feed__glyph--soft">↓</span>
+            <div class="feed__text">
+              <div class="feed__name">Kartenzahlung · Wirex</div>
+              <div class="feed__meta">Bewirtung · Vorschlag SKR03 4650</div>
+            </div>
+            <span class="feed__amount num">−87,20 €</span>
+          </div>
+          <div class="feed__row">
+            <span class="feed__glyph feed__glyph--warn">↓</span>
+            <div class="feed__text">
+              <div class="feed__name">SEPA-Überweisung</div>
+              <div class="feed__meta">noch nicht zugeordnet</div>
+            </div>
+            <span class="feed__amount num">−350,00 €</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="banking__copy">
+      <p class="kicker">Banking</p>
+      <h2>Dein Konto liegt schon drin</h2>
+      <p class="section__lead">Kontoumsätze kommen per CSV-Import oder direkt aus dem angebundenen Nuri-/Wirex-Konto. Klar gleicht Eingänge mit offenen Rechnungen ab und lernt bei jeder Zuordnung dazu — festgeschrieben wird erst, wenn du bestätigst.</p>
+      <div class="reports">
+        <div class="report">
+          <span class="report__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 15V3M8 11l4 4 4-4"/><path d="M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg></span>
+          <div class="report__text"><div class="report__name">CSV-Import</div><div class="report__note">Ganze Historie einwerfen — Duplikate erkennt Klar per Prüfsumme</div></div>
+          <span class="report__tag">Jede Bank</span>
+        </div>
+        <div class="report">
+          <span class="report__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h13l-3-3M20 16H7l3 3"/></svg></span>
+          <div class="report__text"><div class="report__name">Automatischer Abgleich</div><div class="report__note">Zahlungseingang trifft offene Rechnung, die gilt damit als bezahlt</div></div>
+          <span class="report__tag">Laufend</span>
+        </div>
+        <div class="report">
+          <span class="report__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3a9 9 0 1 1-9 9"/><path d="M3 3v5h5"/><path d="m9 12 2 2 4-4"/></svg></span>
+          <div class="report__text"><div class="report__name">Regeln, die sich lernen</div><div class="report__note">Einmal zugeordnet, beim nächsten Mal vorgeschlagen</div></div>
+          <span class="report__tag">SKR03</span>
+        </div>
+        <div class="report">
+          <span class="report__icon"><svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="6" width="18" height="13" rx="2.5"/><path d="M3 10.5h18"/></svg></span>
+          <div class="report__text"><div class="report__name">Nuri-/Wirex-Konto</div><div class="report__note">Karten- und Kontoumsätze, IBAN und SEPA — Anmeldung per Passkey</div></div>
+          <span class="report__tag">Optional</span>
         </div>
       </div>
     </div>
@@ -331,7 +413,9 @@
     <div class="spacer"></div>
     <nav>
       <a href="#funktionen">Funktionen</a>
+      <a href="#banking">Banking</a>
       <a href="#steuern">Steuern</a>
+      <a href="/ratgeber">Ratgeber</a>
     </nav>
     <span class="footer__copy">© 2026 Klar</span>
   </div>
