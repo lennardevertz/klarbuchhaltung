@@ -1,0 +1,13 @@
+[Desktop Entry]
+Type=Application
+Name=Klar
+GenericName=Buchhaltung
+GenericName[en]=Bookkeeping
+Comment=Lokale Buchhaltung für Freiberufler: Rechnungen, EÜR, USt-Voranmeldung
+Comment[en]=Local bookkeeping for freelancers: invoices, cash-basis accounting, VAT return
+Exec=klarbuchhaltung
+Icon=klarbuchhaltung
+Terminal=false
+Categories=Office;Finance;
+Keywords=Buchhaltung;Rechnung;EÜR;Umsatzsteuer;ELSTER;Freiberufler;accounting;invoice;
+StartupWMClass=Buchhaltung

@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.defaultLocale.1.6.0.schema.json
+PackageIdentifier: LennardEvertz.Klar
+PackageVersion: 1.0.1
+PackageLocale: en-US
+Publisher: Lennard Evertz
+PublisherUrl: https://klarbuchhaltung.de/
+PublisherSupportUrl: https://github.com/lennardevertz/klarbuchhaltung/issues
+PackageName: Klar
+PackageUrl: https://klarbuchhaltung.de/
+License: MIT
+LicenseUrl: https://github.com/lennardevertz/klarbuchhaltung/blob/main/LICENSE
+Copyright: Copyright (c) 2026 Lennard Evertz
+ShortDescription: Local bookkeeping for German freelancers — invoices, EÜR, VAT return
+Description: |-
+  Klar is a free, open-source desktop bookkeeping app for freelancers in
+  Germany. It covers invoices (domestic VAT, EU reverse charge, third
+  country, small-business scheme under § 19 UStG), receipt capture,
+  cash-basis profit calculation (EÜR under § 4 Abs. 3 EStG) and the German
+  advance VAT return in the ELSTER layout with key figures 81, 86, 66, 83,
+  21 and 45.
+
+  Everything runs locally: the ledger is a SQLite file plus a folder of
+  receipt PDFs on your own machine, and the built-in web server only listens
+  on 127.0.0.1. There is no account, no subscription and no feature limit.
+
+  Not included: double-entry bookkeeping or balance sheets, payroll,
+  multi-user access, direct submission to ELSTER, and e-invoice export as
+  XRechnung or ZUGFeRD.
+Moniker: klar
+Tags:
+  - accounting
+  - bookkeeping
+  - buchhaltung
+  - elster
+  - freelancer
+  - germany
+  - invoicing
+  - local-first
+  - umsatzsteuer
+ReleaseNotesUrl: https://github.com/lennardevertz/klarbuchhaltung/releases/tag/v1.0.1
+ManifestType: defaultLocale
+ManifestVersion: 1.6.0

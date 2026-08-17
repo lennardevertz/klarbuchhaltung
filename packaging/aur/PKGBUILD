@@ -1,0 +1,52 @@
+# Maintainer: Lennard Evertz <lennardevertz@web.de>
+#
+# AUR-Paket aus dem fertigen Linux-Tarball des Releases (PyInstaller-Ordner,
+# Python ist mit drin). Deshalb -bin: aus den Quellen zu bauen hiesse, den
+# ganzen PyInstaller-Lauf im Paketbau zu wiederholen.
+#
+# Veroeffentlichen:
+#   git clone ssh://aur@aur.archlinux.org/klarbuchhaltung-bin.git
+#   cp PKGBUILD klarbuchhaltung.desktop klarbuchhaltung-bin/
+#   cd klarbuchhaltung-bin && makepkg --printsrcinfo > .SRCINFO
+#   git add -A && git commit -m "Erstveroeffentlichung 1.0.1" && git push
+#
+# Vorher lokal pruefen: makepkg -si && namcap *.pkg.tar.zst
+
+pkgname=klarbuchhaltung-bin
+pkgver=1.0.1
+pkgrel=1
+pkgdesc="Lokale Buchhaltung fuer Freiberufler in Deutschland: Rechnungen, EUeR, USt-Voranmeldung"
+arch=('x86_64')
+url="https://klarbuchhaltung.de/"
+license=('MIT')
+# Das Bundle bringt Python mit, aber nicht die GTK-/WebKit-Bibliotheken, in
+# denen pywebview das Fenster zeichnet.
+depends=('gtk3' 'webkit2gtk-4.1')
+provides=('klarbuchhaltung')
+conflicts=('klarbuchhaltung')
+options=('!strip')          # PyInstaller-Bundle nicht nachtraeglich anfassen
+source=("klarbuchhaltung-$pkgver.tar.gz::https://github.com/lennardevertz/klarbuchhaltung/releases/download/v$pkgver/Buchhaltung-$pkgver-Linux.tar.gz"
+        "klarbuchhaltung.png::https://raw.githubusercontent.com/lennardevertz/klarbuchhaltung/v$pkgver/packaging/Buchhaltung.png"
+        "klarbuchhaltung.desktop"
+        "LICENSE::https://raw.githubusercontent.com/lennardevertz/klarbuchhaltung/v$pkgver/LICENSE")
+sha256sums=('1f161333eec815a6a2502e1301f6782f6df9a6774c8672077a8fbf9cc3df2d50'
+            '16c1287c3cf47e3e1b6930086f0d39143b5b8010023a79be6d60e405b31b73a2'
+            'bb00928917e88ea888182a842e9d1a0ffd6d95b0b598c4b84a2f1c352db70f5f'
+            'SKIP')
+
+package() {
+  # Der Ordner bleibt als Einheit: die EXE erwartet _internal daneben.
+  install -d "$pkgdir/opt/klarbuchhaltung"
+  cp -a "$srcdir/Buchhaltung/." "$pkgdir/opt/klarbuchhaltung/"
+  chmod 755 "$pkgdir/opt/klarbuchhaltung/Buchhaltung"
+
+  install -d "$pkgdir/usr/bin"
+  ln -s /opt/klarbuchhaltung/Buchhaltung "$pkgdir/usr/bin/klarbuchhaltung"
+
+  install -Dm644 "$srcdir/klarbuchhaltung.desktop" \
+    "$pkgdir/usr/share/applications/klarbuchhaltung.desktop"
+  install -Dm644 "$srcdir/klarbuchhaltung.png" \
+    "$pkgdir/usr/share/icons/hicolor/512x512/apps/klarbuchhaltung.png"
+  install -Dm644 "$srcdir/LICENSE" \
+    "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+}

@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://aka.ms/winget-manifest.locale.1.6.0.schema.json
+PackageIdentifier: LennardEvertz.Klar
+PackageVersion: 1.0.1
+PackageLocale: de-DE
+Publisher: Lennard Evertz
+PublisherUrl: https://klarbuchhaltung.de/
+PublisherSupportUrl: https://github.com/lennardevertz/klarbuchhaltung/issues
+PackageName: Klar
+PackageUrl: https://klarbuchhaltung.de/
+License: MIT
+LicenseUrl: https://github.com/lennardevertz/klarbuchhaltung/blob/main/LICENSE
+ShortDescription: Lokale Buchhaltung für Freiberufler — Rechnungen, EÜR, USt-Voranmeldung
+Description: |-
+  Klar ist eine kostenlose, quelloffene Desktop-Buchhaltung für Freiberufler
+  in Deutschland. Sie deckt Rechnungen (Inland mit USt, EU-B2B mit Reverse
+  Charge, Drittland, Kleinunternehmer nach § 19 UStG), Belegerfassung, die
+  EÜR nach § 4 Abs. 3 EStG und die USt-Voranmeldung im ELSTER-Layout mit den
+  Kennzahlen 81, 86, 66, 83, 21 und 45 ab.
+
+  Alles läuft lokal: Die Buchhaltung ist eine SQLite-Datei plus ein Ordner
+  mit Beleg-PDFs auf dem eigenen Rechner, der eingebaute Webserver hört nur
+  auf 127.0.0.1. Kein Konto, kein Abo, keine Funktionsgrenze.
+
+  Nicht enthalten: doppelte Buchführung und Bilanz, Lohnbuchhaltung,
+  Mehrbenutzerbetrieb, direkte Übertragung an ELSTER sowie E-Rechnungen als
+  XRechnung oder ZUGFeRD.
+Tags:
+  - buchhaltung
+  - buchhaltungssoftware
+  - elster
+  - euer
+  - freiberufler
+  - kleinunternehmer
+  - rechnungen
+  - umsatzsteuer
+ReleaseNotesUrl: https://github.com/lennardevertz/klarbuchhaltung/releases/tag/v1.0.1
+ManifestType: locale
+ManifestVersion: 1.6.0
