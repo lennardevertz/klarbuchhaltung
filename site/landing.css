@@ -298,6 +298,15 @@ h1,h2,h3,p{ margin:0 }
   background:var(--wash); padding:5px 11px; border-radius:var(--r-pill);
 }
 
+/* ---------- FAQ ---------- */
+/* Zweispaltig, damit acht Fragen nicht zur Textwüste werden. Der Text steht
+   sichtbar im DOM (kein details/summary), weil die FAQPage-Auszeichnung im
+   <head> sonst ins Leere zeigt. */
+.faq{ display:grid; grid-template-columns:1fr 1fr; gap:var(--s-8) var(--s-10) }
+.faq__item h3{ margin-bottom:var(--s-3); font-size:var(--fs-title); font-weight:var(--fw-semibold); line-height:var(--lh-snug); letter-spacing:var(--tracking-tight) }
+.faq__item p{ font-size:15px; line-height:var(--lh-relaxed); color:var(--ink-2) }
+.faq__item a{ text-decoration:underline; text-underline-offset:2px }
+
 /* ---------- Schluss-CTA ---------- */
 .final{ text-align:center; padding-top:76px; padding-bottom:76px }
 .final h2{ margin-bottom:var(--s-4); font-family:var(--font-display); font-weight:var(--fw-bold); font-size:clamp(28px,3.8vw,48px); letter-spacing:var(--tracking-tight) }
@@ -318,6 +327,7 @@ h1,h2,h3,p{ margin:0 }
   .panel__inner,.split,.tax{ gap:var(--s-10) }
   .section{ padding-top:56px; padding-bottom:56px }
   .features{ grid-template-columns:1fr }
+  .faq{ grid-template-columns:1fr; gap:var(--s-6) }
   .panel{ padding:var(--s-8) }
   .nav__links{ display:none }
   .tax > .tax__copy{ order:-1 }

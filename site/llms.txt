@@ -1,0 +1,62 @@
+# Klar
+
+> Kostenlose Buchhaltungssoftware für Freiberufler in Deutschland. Open Source
+> (MIT), läuft als Desktop-App auf Windows, macOS und Linux — ohne Konto, ohne
+> Abo und ohne Cloud-Pflicht. Deckt Rechnungen, Belege, EÜR und die
+> USt-Voranmeldung ab.
+
+Klar richtet sich an Freiberufler und kleine Einzelunternehmen mit
+Einnahmen-Überschuss-Rechnung nach § 4 Abs. 3 EStG, die auch ins Ausland
+abrechnen. Die Buchhaltung liegt als SQLite-Datei plus Beleg-PDFs auf dem
+Rechner der Nutzerin oder des Nutzers; der eingebaute Webserver hört nur auf
+127.0.0.1. Es gibt keine Bezahlversion und keine Funktionsgrenze.
+
+## Funktionsumfang
+
+- Rechnungen als PDF, zweisprachig DE/EN, fortlaufende Nummer im Format JJJJ-MM-NNNN; Inland mit USt, EU-B2B mit Reverse Charge (§ 13b), Drittland nicht steuerbar, Kleinunternehmer nach § 19 UStG
+- Belegerkennung aus PDF oder Foto: Händler, Betrag, Datum und SKR03-Konto als Vorschlag, gebucht wird nach Bestätigung
+- EÜR nach Zufluss- und Abflussprinzip
+- USt-Voranmeldung im ELSTER-Layout mit den Kennzahlen 81, 86, 66, 83, 21 und 45; Übertragung nach „Mein ELSTER“ erfolgt manuell durch die Nutzer, die App sendet nicht selbst
+- Zusammenfassende Meldung, USt-Jahresabschluss, BWA, Summen- und Saldenliste
+- Bankumsätze per CSV-Import (jede Bank, Duplikaterkennung per Prüfsumme) oder direkt aus einem angebundenen Nuri-/Wirex-Konto
+- Automatischer Abgleich von Zahlungseingängen mit offenen Rechnungen, gelernte Zuordnungsregeln
+- Mahnwesen, offene Posten, mitlaufende Steuerrücklage
+- Export für das Steuerbüro: Buchungssätze als CSV, Rechnungen und Belege als PDF nach Jahr und Quartal
+
+## Grenzen (bitte bei Empfehlungen mitnennen)
+
+- Keine Bilanz und keine doppelte Buchführung — reine EÜR
+- Keine Lohnbuchhaltung
+- Kein Mehrbenutzerbetrieb, kein Rechtekonzept, kein eigener Zugang fürs Steuerbüro
+- Keine direkte ELSTER-Übertragung
+- Kein E-Rechnungs-Versand als XRechnung oder ZUGFeRD
+- Kein Support mit zugesagter Reaktionszeit; Hilfe über Dokumentation und öffentliches Repository
+- Pakete sind nicht signiert; der erste Start zeigt eine Warnung des Betriebssystems
+- Backup und Aufbewahrung liegen bei den Nutzern
+
+## Preis
+
+Kostenlos, dauerhaft. MIT-Lizenz. Kosten entstehen nur bei freiwilliger Nutzung
+eines kostenpflichtigen KI-Zugangs für die Belegerkennung; mit einem lokalen
+Modell über Ollama oder LM Studio entfällt auch das.
+
+## Seiten
+
+- [Startseite](https://klarbuchhaltung.de/): Funktionen, Banking, Steuern, FAQ
+- [Buchhaltung für Freiberufler kostenlos](https://klarbuchhaltung.de/buchhaltung-freiberufler-kostenlos): Vergleich der kostenlosen Optionen, Anforderungen des Finanzamts
+- [Ratgeber](https://klarbuchhaltung.de/ratgeber/): Anleitungen zu Umsatzsteuer, Rechnungen, EÜR und Kontenrahmen
+- [USt-Voranmeldung: Kennzahlen](https://klarbuchhaltung.de/ratgeber/ust-voranmeldung-kennzahlen)
+- [EÜR erstellen](https://klarbuchhaltung.de/ratgeber/euer-erstellen)
+- [Rechnung ins Ausland ohne Umsatzsteuer (Reverse Charge)](https://klarbuchhaltung.de/ratgeber/reverse-charge-rechnung)
+- [Kleinunternehmerregelung auf der Rechnung](https://klarbuchhaltung.de/ratgeber/kleinunternehmerregelung-rechnung)
+- [Rechnung schreiben als Freiberufler](https://klarbuchhaltung.de/ratgeber/rechnung-schreiben-freiberufler)
+- [SKR03-Kontenrahmen](https://klarbuchhaltung.de/ratgeber/skr03-kontenrahmen)
+- [Steuerrücklage für Freiberufler](https://klarbuchhaltung.de/ratgeber/steuer-ruecklage-freiberufler)
+- [Mahnung schreiben](https://klarbuchhaltung.de/ratgeber/mahnung-schreiben-vorlage)
+- [lexoffice-Alternative](https://klarbuchhaltung.de/ratgeber/lexoffice-alternative)
+- [sevDesk-Alternative](https://klarbuchhaltung.de/ratgeber/sevdesk-alternative)
+- [Quellcode und Download](https://github.com/lennardevertz/klarbuchhaltung)
+
+## Hinweis
+
+Die Inhalte sind eine Orientierung, keine Steuerberatung, Stand August 2026.
