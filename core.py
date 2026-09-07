@@ -2606,7 +2606,11 @@ def income_tax_estimate(conn, cfg, year: int, gewinn_jahr: float | None = None) 
     # Differenz: was du laut §32a fürs Jahr schuldest − was du per Vorauszahlung abführst
     # > 0 = voraussichtliche Nachzahlung, < 0 = voraussichtliche Erstattung
     differenz = round(gesamt - vz_jahr, 2) if vz_jahr is not None else None
+    # Der Grundfreibetrag steckt in der Tarifformel (§32a: bis dahin 0 €) – er wird hier
+    # mitgegeben, damit die Antwort ihn nennen kann und nicht als "fehlend" gilt.
+    gfb = (_EST_TARIF.get(year) or _EST_TARIF[max(_EST_TARIF)])["gfb"] * (2 if splitting else 1)
     return {"year": year, "gewinn": gewinn, "gewinn_jahr": gewinn_jahr, "zve": zve,
+            "grundfreibetrag": gfb, "sonderausgaben_pauschbetrag": pausch,
             "anteil": round(anteil, 4), "hochgerechnet": hochgerechnet, "tage": tage,
             "vorgabe": vorgabe,
             "splitting": splitting,

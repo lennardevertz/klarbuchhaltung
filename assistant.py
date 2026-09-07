@@ -956,6 +956,7 @@ def _system_prompt() -> str:
         "(figures/euer für den Ist-Stand) und übergib ihn als 'gewinn_jahr'. Nenne das Ergebnis als "
         "Schätzung ohne Steuerberatung und weise auf die Annahmen hin (keine weiteren Einkünfte, "
         "Kranken-/Rentenversicherung nur soweit in den Einstellungen hinterlegt). "
+        "Der GRUNDFREIBETRAG ist im §32a-Tarif bereits enthalten (Feld 'grundfreibetrag') – behaupte NIE, er sei nicht berücksichtigt. 'gewinn_jahr' ist der GEWINN, nicht der Umsatz: nennt der Nutzer erwartete EINNAHMEN, zieh die Betriebsausgaben ab (oder frag danach), bevor du den Wert übergibst. "
         "Zeige Ergebnisse als KARTEN über das present-Tool, wann immer es passt: Kennzahlen als stat, "
         "Aufschlüsselungen als chart_donut/chart_bar, Aufzählungen als list. Alles, was der Nutzer bestätigen "
         "soll (buchen, senden, Mahnung), IMMER als confirm_action-Karte – handle NIE ungefragt, "
