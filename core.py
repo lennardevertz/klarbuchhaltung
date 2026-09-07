@@ -2567,19 +2567,26 @@ def _jahresanteil(year: int, today: date | None = None) -> float:
     return tage / im_jahr
 
 
-def income_tax_estimate(conn, cfg, year: int) -> dict:
+def income_tax_estimate(conn, cfg, year: int, gewinn_jahr: float | None = None) -> dict:
     """Geschätzte Einkommensteuer (+ optional Soli, Kirchensteuer) für das ganze Jahr.
     Beim laufenden Jahr wird der bisherige EÜR-Gewinn auf das Gesamtjahr hochgerechnet
     ('läuft weiter wie bisher'), weil der §32a-Tarif progressiv ist und eine Steuer auf den
     Zwischenstand die Jahreslast systematisch unterschätzt.
+    'gewinn_jahr' überschreibt diese Prognose mit einem Planwert für das GANZE Jahr
+    (z. B. "ab Juli monatlich 4.500 € netto") – dann wird nichts hochgerechnet und die
+    Rücklage ist die volle Jahressteuer, nicht der bisher verdiente Anteil.
     Annahme: keine weiteren Einkünfte außer 'est_weitere_einkuenfte' aus den Einstellungen.
     zvE = Gewinn + weitere Einkünfte − Krankenversicherung − Sonderausgaben-Pauschbetrag."""
     s = load_settings()
     gewinn = euer(conn, cfg, f"{year}-01-01", f"{year}-12-31")["gewinn"]
     anteil = _jahresanteil(year)
     tage = round(anteil * 365)
-    hochgerechnet = anteil < 1.0 and tage >= _HOCHRECHNUNG_AB_TAGEN
-    gewinn_jahr = round(gewinn / anteil, 2) if hochgerechnet else gewinn
+    vorgabe = gewinn_jahr is not None
+    hochgerechnet = not vorgabe and anteil < 1.0 and tage >= _HOCHRECHNUNG_AB_TAGEN
+    if vorgabe:
+        gewinn_jahr = round(float(gewinn_jahr), 2)        # Planwert, gilt fürs ganze Jahr
+    else:
+        gewinn_jahr = round(gewinn / anteil, 2) if hochgerechnet else gewinn
     splitting = (s.get("est_veranlagung") == "zusammen")
     kv = float(s.get("est_krankenversicherung") or 0)
     weitere = float(s.get("est_weitere_einkuenfte") or 0)
@@ -2601,6 +2608,7 @@ def income_tax_estimate(conn, cfg, year: int) -> dict:
     differenz = round(gesamt - vz_jahr, 2) if vz_jahr is not None else None
     return {"year": year, "gewinn": gewinn, "gewinn_jahr": gewinn_jahr, "zve": zve,
             "anteil": round(anteil, 4), "hochgerechnet": hochgerechnet, "tage": tage,
+            "vorgabe": vorgabe,
             "splitting": splitting,
             "est": round(est, 2), "soli": round(soli, 2), "kirchensteuer": kist,
             "kist_satz": kist_satz, "krankenversicherung": kv, "weitere_einkuenfte": weitere,
@@ -2609,15 +2617,19 @@ def income_tax_estimate(conn, cfg, year: int) -> dict:
             "differenz": differenz}
 
 
-def tax_reserve(conn, cfg=None) -> dict:
+def tax_reserve(conn, cfg=None, year: int | None = None,
+                gewinn_jahr: float | None = None) -> dict:
     """Empfohlene Steuerrücklage 'heute': USt-Zahllast des laufenden Quartals (exakt) +
-    anteilige Einkommensteuer des laufenden Jahres (§32a auf den hochgerechneten Gewinn)."""
+    anteilige Einkommensteuer des laufenden Jahres (§32a auf den hochgerechneten Gewinn).
+    'year' rechnet ein anderes Jahr (dann Q4 als USt-Quartal), 'gewinn_jahr' setzt einen
+    geplanten Jahresgewinn statt der Hochrechnung aus den Buchungen."""
     cfg = cfg or load_config()
     today = date.today()
-    year, q = today.year, (today.month - 1) // 3 + 1
+    year = int(year) if year else today.year
+    q = (today.month - 1) // 3 + 1 if year == today.year else 4
     qlo, qhi, _ = period_bounds(year, "quarter", q)
     ust = round(float(_vat_figures(conn, cfg, qlo, qhi)["zahllast"]), 2)
-    est = income_tax_estimate(conn, cfg, year)
+    est = income_tax_estimate(conn, cfg, year, gewinn_jahr=gewinn_jahr)
     return {"year": year, "quarter": q, "ust": ust, "ust_label": f"Q{q} {year}",
             "est": est, "gesamt": round(ust + est["ruecklage"], 2)}
 

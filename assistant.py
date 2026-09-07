@@ -298,6 +298,14 @@ EXTENDED_TOOLS = [
     _fn("delete_document", "Beleg aus dem Posteingang löschen.",
         {"document_id": {"type": "integer"}}, ["document_id"]),
     # ── Stammdaten & Auswertung ──
+    _fn("tax_reserve", "Empfohlene STEUERRÜCKLAGE und geschätzte EINKOMMENSTEUER: USt-Zahllast des "
+        "laufenden Quartals (exakt) + Einkommensteuer nach §32a EStG (inkl. Soli/Kirchensteuer und "
+        "Splitting laut Einstellungen) auf den Jahresgewinn. Im laufenden Jahr wird der bisherige "
+        "EÜR-Gewinn aufs Jahr hochgerechnet. Nutze dies IMMER bei Fragen nach Einkommensteuer, "
+        "Steuerlast, Nachzahlung oder 'wie viel muss ich zurücklegen'.",
+        {"year": {"type": "integer", "description": "Jahr, Standard: laufendes Jahr"},
+         "gewinn_jahr": {"type": "number", "description": "geplanter Jahresgewinn in Euro statt der "
+                         "Hochrechnung – z. B. wenn der Nutzer künftige Einnahmen vorgibt"}}),
     _fn("list_accounts", "Alle verfügbaren Aufwandskonten (SKR03) auflisten.", {}),
     _fn("add_account", "Eigenes Aufwandskonto ergänzen.",
         {"account": {"type": "string"}}, ["account"]),
@@ -514,6 +522,10 @@ def dispatch(name: str, args: dict) -> str:
         if name == "zm":
             z = core.zm_data(conn, int(args["year"]), int(args["quarter"]))
             z = dict(z); z["rows"] = _rows(z["rows"]); return _j(z)
+        if name == "tax_reserve":
+            g = args.get("gewinn_jahr")
+            return _j(core.tax_reserve(conn, cfg, year=args.get("year"),
+                                       gewinn_jahr=None if g in (None, "") else float(g)))
         if name == "vat_annual":
             return _j(core.vat_annual(conn, cfg, int(args["year"])))
         if name == "create_invoice":
@@ -938,6 +950,12 @@ def _system_prompt() -> str:
         "es liefert nur Jahre MIT Daten und die App zeigt einen Balken-Graphen; NICHT 'figures' pro Jahr aufrufen. "
         "Fasse dich kurz und antworte auf Deutsch. Bevor du etwas anlegst oder änderst, nenne kurz was du tust. "
         "Beträge sind in Euro; EÜR und USt-VA folgen der Ist-Besteuerung. "
+        "STEUERN: Fragen nach EINKOMMENSTEUER, Steuerlast, Nachzahlung oder Rücklage beantwortest du mit "
+        "'tax_reserve' – die App rechnet den §32a-Tarif selbst, sag NIE, du könntest keine Einkommensteuer "
+        "berechnen. Gibt der Nutzer künftige Einnahmen vor, rechne den geplanten Jahresgewinn aus "
+        "(figures/euer für den Ist-Stand) und übergib ihn als 'gewinn_jahr'. Nenne das Ergebnis als "
+        "Schätzung ohne Steuerberatung und weise auf die Annahmen hin (keine weiteren Einkünfte, "
+        "Kranken-/Rentenversicherung nur soweit in den Einstellungen hinterlegt). "
         "Zeige Ergebnisse als KARTEN über das present-Tool, wann immer es passt: Kennzahlen als stat, "
         "Aufschlüsselungen als chart_donut/chart_bar, Aufzählungen als list. Alles, was der Nutzer bestätigen "
         "soll (buchen, senden, Mahnung), IMMER als confirm_action-Karte – handle NIE ungefragt, "
