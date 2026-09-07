@@ -1786,7 +1786,10 @@ def _chat_display() -> list:
     for m in CHAT_MESSAGES:
         role = m.get("role")
         if role == "user" and isinstance(m.get("content"), str):
-            out.append({"role": "user", "text": m.get("_display") or m["content"]})
+            if m.get("_file"):
+                out.append({"role": "user", "text": m.get("_display") or "", "file": m["_file"]})
+            else:
+                out.append({"role": "user", "text": m.get("_display") or m["content"]})
         elif role == "assistant":
             if m.get("content") or m.get("_blocks"):
                 out.append({"role": "assistant", "text": m.get("content") or "",
@@ -1852,14 +1855,15 @@ def chat_api_upload():
     data = file.read()
     note = (request.form.get("message") or "").strip()
     res = assistant.analyze_pdf(data, file.filename)
-    disp = f"📎 {file.filename}" + (f" · {note}" if note else "")
+    # Der Anhang wird als Pill gerendert – die Bubble zeigt nur die Anmerkung.
+    meta = {"name": file.filename, "size": len(data)}
     if res.get("empty"):
         CHAT_MESSAGES.append({"role": "user", "content": f"[Beleg hochgeladen: {file.filename}]",
-                              "_display": disp})
+                              "_display": note, "_file": meta})
         CHAT_MESSAGES.append({"role": "assistant", "content": res["reply"]})
         return jsonify(messages=_chat_display())
     content = res["content"] + (f"\n\nNutzer-Anmerkung: {note}" if note else "")
-    CHAT_MESSAGES.append({"role": "user", "content": content, "_display": disp})
+    CHAT_MESSAGES.append({"role": "user", "content": content, "_display": note, "_file": meta})
     out = assistant.run(list(CHAT_MESSAGES))
     CHAT_MESSAGES.clear()
     CHAT_MESSAGES.extend(out["messages"])

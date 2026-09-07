@@ -157,6 +157,19 @@ a:hover{ text-decoration:underline; }
 .msg--user{ align-self:flex-end; background:var(--ink); color:var(--surface); border-radius:var(--r-lg) var(--r-lg) var(--r-xs) var(--r-lg); max-width:80%; }
 .msg--ai{ align-self:flex-start; background:var(--surface); border:1px solid var(--line-2); border-radius:var(--r-lg) var(--r-lg) var(--r-lg) var(--r-xs); }
 
+/* Anhang-Pill: im Eingabefeld (mit ×) und über der gesendeten Nachricht */
+.filepill{ display:inline-flex; align-items:center; gap:7px; max-width:100%; min-width:0;
+  padding:4px 5px 4px 7px; border:1px solid var(--line-2); border-radius:999px; background:var(--surface); }
+.filepill--plain{ padding-right:11px; }
+.filepill__badge{ flex-shrink:0; border-radius:5px; padding:2px 5px; font-family:var(--font-display); font-weight:700; font-size:9px; letter-spacing:.03em; }
+.filepill__name{ font-size:12.5px; font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.filepill__size{ font-size:11px; color:var(--ink-3); flex-shrink:0; }
+.filepill__x{ flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; border:none;
+  background:none; padding:3px; cursor:pointer; color:var(--ink-3); border-radius:50%; }
+.filepill__x:hover{ background:var(--wash); color:var(--ink); }
+.msg-attach{ align-self:flex-end; display:flex; flex-direction:column; align-items:flex-end; gap:6px; max-width:80%; min-width:0; }
+.msg-attach .msg{ max-width:100%; }
+
 /* ---------- Layout-Helfer ---------- */
 .stack{ display:flex; flex-direction:column; gap:var(--s-4); }
 .row{ display:flex; align-items:center; gap:var(--s-3); }

@@ -39,11 +39,10 @@
         d.style.cssText='font-size:12px;align-self:flex-start'; d.textContent='· '+m.text;
         log.appendChild(d); continue;
       }
-      if(m.text){
-        const d=document.createElement('div');
-        d.className='msg '+(m.role==='user'?'msg--user':'msg--ai');
-        d.innerHTML = m.role==='assistant'?md(m.text):esc(m.text);
-        log.appendChild(d);
+      if(m.role==='user'){ log.appendChild(window.klarUserMsg(m.text, m.file)); }
+      else if(m.text){
+        const d=document.createElement('div'); d.className='msg msg--ai';
+        d.innerHTML = md(m.text); log.appendChild(d);
       }
       // Diagramme und Formulare kommen aus derselben Funktion wie im Widget
       for(const bl of (m.blocks||[])){
@@ -52,8 +51,10 @@
     }
     log.scrollTop=log.scrollHeight;
   }
-  function append(role,text){ const e=log.querySelector('.muted'); if(e&&e.parentElement===log&&!e.textContent.startsWith('·'))e.remove();
-    const d=document.createElement('div'); d.className='msg '+(role==='user'?'msg--user':'msg--ai'); d.textContent=text; log.appendChild(d); log.scrollTop=log.scrollHeight; return d; }
+  function append(role,text,file){ const e=log.querySelector('.muted'); if(e&&e.parentElement===log&&!e.textContent.startsWith('·'))e.remove();
+    const d = role==='user' ? window.klarUserMsg(text,file)
+            : Object.assign(document.createElement('div'),{className:'msg msg--ai',textContent:text});
+    log.appendChild(d); log.scrollTop=log.scrollHeight; return d; }
   async function load(){ try{ const d=await (await fetch('{{ url_for("chat_api") }}')).json(); render(d.messages); }catch(e){} }
   async function cwReset(){ await fetch('{{ url_for("chat_api_reset") }}',{method:'POST'}); render([]); input.focus(); }
   form.addEventListener('submit', async e=>{
@@ -64,7 +65,7 @@
   });
   document.getElementById('cw-file').addEventListener('change', async function(){
     const f=this.files&&this.files[0]; if(!f||busy)return; busy=true;
-    append('user','Beleg: '+f.name); const w=append('ai','… analysiere …');
+    append('user','',{name:f.name,size:f.size}); const w=append('ai','… analysiere …');
     try{ const fd=new FormData(); fd.append('file',f); const d=await (await fetch('{{ url_for("chat_api_upload") }}',{method:'POST',body:fd})).json(); render(d.messages); }
     catch(err){ w.textContent='Fehler: '+err; } finally{ this.value=''; busy=false; }
   });

@@ -279,10 +279,13 @@
       <div id="ask-warn" class="card card--tint" hidden style="margin:12px;box-shadow:none;padding:12px 14px;font-size:13px">Kein LLM-Zugang. Unter <a href="{{ url_for('settings', tab='llm') }}">Einstellungen → LLM</a> Base-URL, Modell &amp; Key eintragen.</div>
       <div class="assistant__body" id="ask-log"></div>
       <div style="border-top:1px solid var(--line-3);padding:12px;background:var(--surface)">
-        <div id="ask-chip" style="display:none;align-items:center;gap:9px;background:var(--wash);border-radius:10px;padding:7px 9px;margin-bottom:10px">
-          <div id="ask-chip-badge" style="width:26px;height:32px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-family:var(--font-display);font-weight:700;font-size:8px;flex-shrink:0"></div>
-          <div style="flex:1;min-width:0"><div id="ask-chip-name" style="font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div><div id="ask-chip-size" class="muted" style="font-size:11px"></div></div>
-          <button type="button" class="iconbtn" onclick="askClearFile()" style="padding:4px"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+        <div id="ask-chip" style="display:none;margin-bottom:9px">
+          <span class="filepill" style="max-width:100%">
+            <span id="ask-chip-badge" class="filepill__badge"></span>
+            <span id="ask-chip-name" class="filepill__name"></span>
+            <span id="ask-chip-size" class="filepill__size"></span>
+            <button type="button" onclick="askClearFile()" title="Anhang entfernen" class="filepill__x"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+          </span>
         </div>
         <form id="ask-form" class="row" style="gap:8px">
           <input type="file" id="ask-file" accept="application/pdf,.pdf,image/*,.csv" hidden>
@@ -528,7 +531,7 @@
           if(m.role==='tool'){ const d=document.createElement('div'); d.className='muted'; d.style.cssText='font-size:12px;align-self:flex-start'; d.textContent='· '+m.text; L.appendChild(d); continue; }
           if(m.role==='assistant'){ if(m.text){ const d=document.createElement('div'); d.className='msg msg--ai'; d.innerHTML=md(m.text); L.appendChild(d); }
             for(const b of (m.blocks||[])) L.appendChild(renderBlock(b)); continue; }
-          const d=document.createElement('div'); d.className='msg msg--user'; d.textContent=m.text; L.appendChild(d);
+          L.appendChild(userMsg(m.text, m.file));
         }
         L.scrollTop=L.scrollHeight;
       }
@@ -538,22 +541,40 @@
       window.askSend=sendText;
       // Die Vollseite /chat zeichnet dieselben Karten – nicht doppelt pflegen.
       window.klarRenderBlock=renderBlock;
-      function append(role,t){ const L=log(); const e=L.querySelector('.muted'); if(e&&e.parentElement===L&&!e.textContent.startsWith('·'))e.remove();
+      function append(role,t,file){ const L=log(); const e=L.querySelector('.muted'); if(e&&e.parentElement===L&&!e.textContent.startsWith('·'))e.remove();
+        if(role==='user'){ const u=userMsg(t,file); L.appendChild(u); L.scrollTop=L.scrollHeight; return u; }
         const d=document.createElement('div'); d.className='msg '+(role==='user'?'msg--user':'msg--ai');
         if(role!=='user' && (t==='…' || /^…/.test(t))){ const lab=t.replace(/^…\s*/,'').replace(/\s*…$/,'').trim();
           d.style.cssText='align-self:flex-start'; d.innerHTML='<span class="ask-typing"><span></span><span></span><span></span></span>'+(lab?'<span style="margin-left:9px;font-size:13px;color:var(--ink-3)">'+esc(lab)+'</span>':''); }
         else d.textContent=t;
         L.appendChild(d); L.scrollTop=L.scrollHeight; return d; }
       function fsize(b){ return b<1024?b+' B':(b<1048576?(b/1024).toFixed(0)+' KB':(b/1048576).toFixed(1)+' MB'); }
-      window.askSetFile=function(f){ pending=f; const ext=(f.name.split('.').pop()||'').toUpperCase();
-        const badge=document.getElementById('ask-chip-badge');
-        const isImg=/(JPG|JPEG|PNG|GIF)/.test(ext), isCsv=ext==='CSV';
-        badge.textContent = ext.slice(0,3);
-        badge.style.background = isCsv?'var(--azure-tint)':(isImg?'var(--azure-tint)':'var(--coral-tint)');
-        badge.style.color = isCsv?'var(--azure-deep)':(isImg?'var(--azure-deep)':'var(--coral-deep)');
+      // Farbe des Kürzel-Badges nach Dateityp – PDF koralle, Bild/CSV azur.
+      function fbadge(el,name){ const ext=(String(name).split('.').pop()||'').toUpperCase().slice(0,4);
+        const azure=/^(JPG|JPEG|PNG|GIF|WEBP|HEIC|CSV)$/.test(ext);
+        el.textContent=ext||'DAT';
+        el.style.background=azure?'var(--azure-tint)':'var(--coral-tint)';
+        el.style.color=azure?'var(--azure-deep)':'var(--coral-deep)'; }
+      // Anhang-Pill für eine bereits gesendete Nachricht (ohne ×).
+      window.klarFilePill=function(f){ const p=document.createElement('span'); p.className='filepill filepill--plain';
+        const b=document.createElement('span'); b.className='filepill__badge'; fbadge(b,f.name||'');
+        const n=document.createElement('span'); n.className='filepill__name'; n.textContent=f.name||'Anhang';
+        p.appendChild(b); p.appendChild(n);
+        if(f.size){ const s=document.createElement('span'); s.className='filepill__size'; s.textContent=fsize(f.size); p.appendChild(s); }
+        return p; };
+      // Nutzer-Nachricht: Anhang als Pill über der Bubble, Text bleibt Text.
+      window.klarUserMsg=function(text,file){
+        if(!file){ const d=document.createElement('div'); d.className='msg msg--user'; d.textContent=text||''; return d; }
+        const w=document.createElement('div'); w.className='msg-attach';
+        w.appendChild(window.klarFilePill(file));
+        if(text){ const d=document.createElement('div'); d.className='msg msg--user'; d.textContent=text; w.appendChild(d); }
+        return w; };
+      const userMsg=window.klarUserMsg;
+      window.askSetFile=function(f){ pending=f;
+        fbadge(document.getElementById('ask-chip-badge'), f.name);
         document.getElementById('ask-chip-name').textContent=f.name;
         document.getElementById('ask-chip-size').textContent=fsize(f.size);
-        document.getElementById('ask-chip').style.display='flex'; input().focus(); };
+        document.getElementById('ask-chip').style.display='block'; input().focus(); };
       window.askClearFile=function(){ pending=null; document.getElementById('ask-chip').style.display='none'; document.getElementById('ask-file').value=''; };
       async function loadHist(){ if(loaded)return; loaded=true; try{ const d=await (await fetch('{{ url_for("chat_api") }}')).json(); document.getElementById('ask-warn').hidden=!!d.configured; render(d.messages); }catch(e){loaded=false;} }
       window.askRefresh=async function(){ try{ const d=await (await fetch('{{ url_for("chat_api") }}')).json(); loaded=true; render(d.messages); }catch(e){} };
@@ -567,7 +588,7 @@
       document.getElementById('ask-file').addEventListener('change', function(){ const f=this.files&&this.files[0]; if(f) askSetFile(f); });
       document.getElementById('ask-form').addEventListener('submit', async e=>{ e.preventDefault(); if(busy)return;
         const t=input().value.trim();
-        if(pending){ busy=true; const f=pending; append('user','Beleg: '+f.name+(t?' · '+t:'')); append('ai','… analysiere …'); askClearFile(); input().value='';
+        if(pending){ busy=true; const f=pending; append('user',t,{name:f.name,size:f.size}); append('ai','… analysiere …'); askClearFile(); input().value='';
           try{ const fd=new FormData(); fd.append('file',f); if(t)fd.append('message',t); const d=await (await fetch('{{ url_for("chat_api_upload") }}',{method:'POST',body:fd})).json(); render(d.messages); }
           catch(err){} finally{ busy=false; input().focus(); } return; }
         if(!t)return; input().value=''; sendText(t); });
