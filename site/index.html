@@ -187,6 +187,7 @@
       <a href="#steuern">Steuern</a>
       <a href="/buchhaltung-freiberufler-kostenlos">Kostenlos</a>
       <a href="/ratgeber/">Ratgeber</a>
+      <a href="#agenten">Für Agenten</a>
     </nav>
     <div class="spacer"></div>
     <a href="https://github.com/lennardevertz/klarbuchhaltung" class="cta cta--dark cta--sm">Loslegen</a>
@@ -265,6 +266,42 @@
       </div>
     </div>
   </div>
+</section>
+
+<!-- Für Agenten: derselbe Text wie im README, zum Kopieren für Claude Code, Codex o. Ä. -->
+<section id="agenten" class="section section--surface agent">
+  <div class="wrap split">
+    <div>
+      <p class="kicker">Für Agenten</p>
+      <h2>Installieren lassen</h2>
+      <p class="section__lead">Diesen Text an Claude Code, Codex o. Ä. schicken, dann läuft die App.</p>
+    </div>
+    <div class="agentbox">
+      <button type="button" class="agentbox__copy">Kopieren</button>
+      <pre id="agent-prompt">Installiere https://github.com/lennardevertz/klarbuchhaltung und starte es.
+Voraussetzung ist Python 3.11 oder neuer.
+
+1. Repo klonen und hineinwechseln.
+2. Virtuelle Umgebung anlegen: python3 -m venv .venv
+3. Abhängigkeiten installieren: .venv/bin/pip install -r requirements.txt
+4. Web-App starten: ./bb-web  (läuft auf http://127.0.0.1:8765, öffnet den Browser)
+   Alternativ als eigenes Fenster: .venv/bin/python desktop.py
+
+Danach führt die App selbst durch die Einrichtung (Firma, Adresse, USt-IdNr.,
+Bank, Steuervorgaben). Die musst du nicht ausfüllen, sag mir nur Bescheid,
+wenn die Seite läuft. Es laufen keine Daten irgendwo hin: alles bleibt in einer
+lokalen SQLite-Datei, und der Server hört ausschließlich auf 127.0.0.1.</pre>
+    </div>
+  </div>
+  <script>
+    document.querySelector(".agentbox__copy").addEventListener("click", function () {
+      var b = this;
+      navigator.clipboard.writeText(document.getElementById("agent-prompt").textContent).then(function () {
+        b.textContent = "Kopiert";
+        setTimeout(function () { b.textContent = "Kopieren"; }, 1600);
+      });
+    });
+  </script>
 </section>
 
 <!-- Banking -->
