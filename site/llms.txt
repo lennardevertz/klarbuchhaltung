@@ -1,4 +1,4 @@
-# Klar
+# Klarbuchhaltung
 
 > Kostenlose Buchhaltungssoftware für Freiberufler in Deutschland. Open Source
 > (MIT), läuft als Desktop-App auf Windows, macOS und Linux — ohne Konto, ohne

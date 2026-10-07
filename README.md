@@ -2,6 +2,8 @@
 
 Lokale Buchhaltung für Freelancer und kleine Betriebe — statt Cloud-Abo.
 
+Website: [klarbuchhaltung.de](https://klarbuchhaltung.de)
+
 ### Für Agenten
 
 Diesen Text an Claude Code, Codex o. Ä. schicken, dann läuft die App:
